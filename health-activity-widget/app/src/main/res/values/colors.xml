@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  These color values are referenced symbolically so you can swap themes easily.
+  The actual rendering uses GridRenderer which reads these at runtime.
+-->
+<resources>
+    <color name="widget_background">#0D1117</color>
+    <color name="cell_inactive">#161B22</color>
+    <color name="cell_active">#39D353</color>
+</resources>

@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.example.healthactivitywidget.app-debug-29:/xml_widget_info.xml.flat",
+        "source": "com.example.healthactivitywidget.app-main-31:/xml/widget_info.xml"
+    },
+    {
+        "merged": "com.example.healthactivitywidget.app-debug-29:/layout_widget_layout.xml.flat",
+        "source": "com.example.healthactivitywidget.app-main-31:/layout/widget_layout.xml"
+    }
+]

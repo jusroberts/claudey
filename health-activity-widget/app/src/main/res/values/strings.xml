@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Health Activity Widget</string>
+    <string name="widget_description">Shows your Health Connect activity as a contribution grid</string>
+    <string name="widget_content_description">Health activity grid</string>
+</resources>
