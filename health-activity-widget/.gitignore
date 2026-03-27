@@ -1,0 +1,22 @@
+# Build output
+build/
+app/build/
+.gradle/
+
+# Local configuration (machine-specific, never commit)
+local.properties
+*.local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Keystore files (never commit signing keys)
+*.jks
+*.keystore
+
+# OS junk
+.DS_Store
+Thumbs.db

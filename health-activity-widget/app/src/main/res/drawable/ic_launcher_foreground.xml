@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive icon foreground: a 4×4 contribution grid.
+  Viewport is 108×108 (standard adaptive icon canvas).
+  The safe zone is the inner 72×72 (18dp inset on each side).
+  Grid: 4 cols × 4 rows, cell 12dp, gap 2dp, step 14dp.
+  Grid origin: (27, 27) — centres the 54×54 grid in the safe zone.
+
+  Active pattern:
+    . ■ ■ .
+    ■ ■ . ■
+    ■ . ■ ■
+    . ■ ■ ■
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Inactive cells -->
+    <path
+        android:fillColor="#2D333B"
+        android:pathData="
+            M29,27 L37,27 Q39,27 39,29 L39,37 Q39,39 37,39 L29,39 Q27,39 27,37 L27,29 Q27,27 29,27 Z
+            M71,27 L79,27 Q81,27 81,29 L81,37 Q81,39 79,39 L71,39 Q69,39 69,37 L69,29 Q69,27 71,27 Z
+            M57,41 L65,41 Q67,41 67,43 L67,51 Q67,53 65,53 L57,53 Q55,53 55,51 L55,43 Q55,41 57,41 Z
+            M43,55 L51,55 Q53,55 53,57 L53,65 Q53,67 51,67 L43,67 Q41,67 41,65 L41,57 Q41,55 43,55 Z
+            M29,69 L37,69 Q39,69 39,71 L39,79 Q39,81 37,81 L29,81 Q27,81 27,79 L27,71 Q27,69 29,69 Z" />
+
+    <!-- Active cells -->
+    <path
+        android:fillColor="#39D353"
+        android:pathData="
+            M43,27 L51,27 Q53,27 53,29 L53,37 Q53,39 51,39 L43,39 Q41,39 41,37 L41,29 Q41,27 43,27 Z
+            M57,27 L65,27 Q67,27 67,29 L67,37 Q67,39 65,39 L57,39 Q55,39 55,37 L55,29 Q55,27 57,27 Z
+            M29,41 L37,41 Q39,41 39,43 L39,51 Q39,53 37,53 L29,53 Q27,53 27,51 L27,43 Q27,41 29,41 Z
+            M43,41 L51,41 Q53,41 53,43 L53,51 Q53,53 51,53 L43,53 Q41,53 41,51 L41,43 Q41,41 43,41 Z
+            M71,41 L79,41 Q81,41 81,43 L81,51 Q81,53 79,53 L71,53 Q69,53 69,51 L69,43 Q69,41 71,41 Z
+            M29,55 L37,55 Q39,55 39,57 L39,65 Q39,67 37,67 L29,67 Q27,67 27,65 L27,57 Q27,55 29,55 Z
+            M57,55 L65,55 Q67,55 67,57 L67,65 Q67,67 65,67 L57,67 Q55,67 55,65 L55,57 Q55,55 57,55 Z
+            M71,55 L79,55 Q81,55 81,57 L81,65 Q81,67 79,67 L71,67 Q69,67 69,65 L69,57 Q69,55 71,55 Z
+            M43,69 L51,69 Q53,69 53,71 L53,79 Q53,81 51,81 L43,81 Q41,81 41,79 L41,71 Q41,69 43,69 Z
+            M57,69 L65,69 Q67,69 67,71 L67,79 Q67,81 65,81 L57,81 Q55,81 55,79 L55,71 Q55,69 57,69 Z
+            M71,69 L79,69 Q81,69 81,71 L81,79 Q81,81 79,81 L71,81 Q69,81 69,79 L69,71 Q69,69 71,69 Z" />
+
+</vector>

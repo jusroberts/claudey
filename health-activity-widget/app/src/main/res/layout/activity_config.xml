@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0D1117"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Widget Settings"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Steps -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="STEPS"
+            android:textColor="#8B949E"
+            android:textSize="12sp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Steps row is added programmatically -->
+        <LinearLayout
+            android:id="@+id/steps_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="32dp" />
+
+        <!-- Exercise types -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="EXERCISE"
+            android:textColor="#8B949E"
+            android:textSize="12sp"
+            android:layout_marginBottom="12dp" />
+
+        <ProgressBar
+            android:id="@+id/exercise_loading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Exercise rows added programmatically after loading from Health Connect -->
+        <LinearLayout
+            android:id="@+id/exercise_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/no_exercise_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No exercise sessions found in the last 26 weeks."
+            android:textColor="#8B949E"
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Tap color circle to cycle through colours. -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tap a colour dot to change it."
+            android:textColor="#8B949E"
+            android:textSize="12sp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="40dp" />
+
+        <Button
+            android:id="@+id/save_button"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Save"
+            android:textColor="#0D1117"
+            android:backgroundTint="#39D353" />
+
+    </LinearLayout>
+</ScrollView>

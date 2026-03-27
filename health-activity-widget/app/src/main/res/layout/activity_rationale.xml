@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp"
+    android:background="#0D1117">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Health Activity Widget"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Why we need access to your activity data"
+        android:textColor="#8B949E"
+        android:textSize="13sp"
+        android:textAllCaps="true"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="This app reads your step count and exercise sessions from Health Connect to display a contribution-style activity grid on your home screen.\n\nYour health data never leaves your device — it is only used to render the widget locally."
+        android:textColor="#E6EDF3"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="1.4"
+        android:layout_marginBottom="40dp" />
+
+    <Button
+        android:id="@+id/rationale_ok"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Got it"
+        android:textColor="#0D1117"
+        android:backgroundTint="#39D353" />
+
+</LinearLayout>

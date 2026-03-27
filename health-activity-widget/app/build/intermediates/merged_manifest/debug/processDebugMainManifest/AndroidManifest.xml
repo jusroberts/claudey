@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.healthactivitywidget"
+    package="com.wiggleton.healthactivitywidget"
     android:versionCode="1"
     android:versionName="1.0" >
 
     <uses-sdk
         android:minSdkVersion="26"
-        android:targetSdkVersion="34" />
+        android:targetSdkVersion="36" />
 
     <!-- Health Connect read permissions -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
@@ -27,10 +27,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <permission
-        android:name="com.example.healthactivitywidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:name="com.wiggleton.healthactivitywidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
 
-    <uses-permission android:name="com.example.healthactivitywidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+    <uses-permission android:name="com.wiggleton.healthactivitywidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
         android:allowBackup="true"
@@ -38,12 +38,11 @@
         android:debuggable="true"
         android:extractNativeLibs="false"
         android:label="@string/app_name"
-        android:supportsRtl="true"
-        android:testOnly="true" >
+        android:supportsRtl="true" >
 
         <!-- Widget receiver -->
         <receiver
-            android:name="com.example.healthactivitywidget.HealthWidgetProvider"
+            android:name="com.wiggleton.healthactivitywidget.HealthWidgetProvider"
             android:exported="true" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -56,17 +55,45 @@
 
         <!-- Transparent activity launched when Health Connect permissions are needed -->
         <activity
-            android:name="com.example.healthactivitywidget.PermissionActivity"
+            android:name="com.wiggleton.healthactivitywidget.PermissionActivity"
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!--
+          Required by Health Connect: exported activity that handles VIEW_PERMISSION_USAGE
+          so HC recognises the app and shows the permission dialog.
+          Displays a rationale screen explaining why health data is needed.
+        -->
+        <activity
+            android:name="com.wiggleton.healthactivitywidget.RationaleActivity"
+            android:exported="true"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity>
+
+        <!-- Settings screen opened by tapping the widget -->
+        <activity
+            android:name="com.wiggleton.healthactivitywidget.ConfigActivity"
+            android:exported="false"
+            android:label="Widget Settings" />
 
         <!-- WorkManager initializer (auto-initialized via manifest merger) -->
         <provider
             android:name="androidx.startup.InitializationProvider"
-            android:authorities="com.example.healthactivitywidget.androidx-startup"
+            android:authorities="com.wiggleton.healthactivitywidget.androidx-startup"
             android:exported="false" >
             <meta-data
                 android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
                 android:value="androidx.startup" />
             <meta-data
                 android:name="androidx.profileinstaller.ProfileInstallerInitializer"

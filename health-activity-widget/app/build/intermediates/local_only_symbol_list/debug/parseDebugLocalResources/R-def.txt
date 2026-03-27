@@ -3,7 +3,15 @@ local
 color cell_active
 color cell_inactive
 color widget_background
+id exercise_container
+id exercise_loading
 id grid_image
+id no_exercise_label
+id rationale_ok
+id save_button
+id steps_container
+layout activity_config
+layout activity_rationale
 layout widget_layout
 string app_name
 string widget_content_description
