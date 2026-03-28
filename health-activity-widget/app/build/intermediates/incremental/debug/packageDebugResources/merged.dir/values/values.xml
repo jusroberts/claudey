@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="cell_active">#39D353</color>
-    <color name="cell_inactive">#161B22</color>
-    <color name="widget_background">#0D1117</color>
-    <string name="app_name">Health Activity Widget</string>
-    <string name="widget_content_description">Health activity grid</string>
-    <string name="widget_description">Shows your Health Connect activity as a contribution grid</string>
-</resources>

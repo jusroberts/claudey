@@ -3,6 +3,7 @@ package com.wiggleton.healthactivitywidget
 import android.content.Context
 import android.graphics.Color
 import androidx.core.content.edit
+import java.time.LocalDate
 import kotlin.math.abs
 
 class WidgetPreferences(context: Context) {
@@ -25,24 +26,64 @@ class WidgetPreferences(context: Context) {
         }
 
     /**
-     * Returns the color stored for [activityKey].
-     * Defaults: steps → green; exercise types → a stable color derived from the key's hash
-     * so each type gets a distinct hue out of the box without any user configuration.
+     * Returns the color for [activityKey], auto-assigning one on first access.
+     *
+     * Steps always get slot 0 (green). Each new exercise type claims the next
+     * available slot (1, 2, 3 …), cycling back to 1 once all slots are used.
+     * This guarantees distinct default colors for up to 7 concurrent exercise types.
+     * Once assigned, the color is persisted and won't change unless the user picks
+     * a different one in the config screen.
      */
     fun getActivityColor(activityKey: String): Int {
         val stored = prefs.getInt("color_$activityKey", COLOR_NOT_SET)
         if (stored != COLOR_NOT_SET) return stored
-        return if (activityKey == STEPS_KEY) PRESET_COLORS[0]
-        else PRESET_COLORS[abs(activityKey.hashCode()) % PRESET_COLORS.size]
+
+        val index = if (activityKey == STEPS_KEY) {
+            0
+        } else {
+            val next = prefs.getInt(KEY_NEXT_COLOR_INDEX, 1)
+            prefs.edit { putInt(KEY_NEXT_COLOR_INDEX, if (next >= PRESET_COLORS.lastIndex) 1 else next + 1) }
+            next
+        }
+
+        val color = PRESET_COLORS[index]
+        prefs.edit { putInt("color_$activityKey", color) }
+        return color
     }
 
     fun setActivityColor(activityKey: String, color: Int) =
         prefs.edit { putInt("color_$activityKey", color) }
 
+    /**
+     * Persists [data] so the widget can render immediately on the next wake before
+     * Health Connect responds. Serialised as "YYYY-MM-DD|key1,key2;..." in a single pref.
+     */
+    fun saveActivityCache(data: Map<LocalDate, Set<String>>) {
+        val encoded = data.entries.joinToString(";") { (date, keys) ->
+            "$date|${keys.joinToString(",")}"
+        }
+        prefs.edit { putString(KEY_ACTIVITY_CACHE, encoded) }
+    }
+
+    /** Returns the last cached activity data, or an empty map if nothing is stored yet. */
+    fun loadActivityCache(): Map<LocalDate, Set<String>> {
+        val raw = prefs.getString(KEY_ACTIVITY_CACHE, "") ?: ""
+        if (raw.isEmpty()) return emptyMap()
+        return raw.split(";").mapNotNull { entry ->
+            val parts = entry.split("|", limit = 2)
+            if (parts.size != 2) return@mapNotNull null
+            val date = try { LocalDate.parse(parts[0]) } catch (_: Exception) { return@mapNotNull null }
+            val keys = parts[1].split(",").filter { it.isNotEmpty() }.toSet()
+            date to keys
+        }.toMap()
+    }
+
     companion object {
         private const val PREFS_NAME = "widget_prefs"
         private const val KEY_SHOW_STEPS = "show_steps"
         private const val KEY_DISABLED_EXERCISE_TYPES = "disabled_exercise_types"
+        private const val KEY_ACTIVITY_CACHE = "activity_cache"
+        private const val KEY_NEXT_COLOR_INDEX = "next_color_index"
         private const val COLOR_NOT_SET = Int.MIN_VALUE
 
         const val STEPS_KEY = "steps"

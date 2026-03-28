@@ -1,0 +1,45 @@
+# Draft F-Droid metadata for submission to https://gitlab.com/fdroid/fdroiddata
+#
+# Steps to submit:
+#   1. Fork https://gitlab.com/fdroid/fdroiddata
+#   2. Copy this file to metadata/com.wiggleton.healthactivitywidget.yml
+#   3. Update SourceCode, IssueTracker, and Repo to your actual GitHub/GitLab URL
+#   4. Tag your release commit as v1.0 (git tag v1.0 && git push --tags)
+#   5. Open a merge request against fdroiddata
+#
+# F-Droid reviewers will build the app from source and sign it themselves.
+
+Categories:
+  - Sports & Health
+
+License: MIT
+
+AuthorName: Justin Wiggleton
+SourceCode: https://github.com/YOURUSER/health-activity-widget
+IssueTracker: https://github.com/YOURUSER/health-activity-widget/issues
+
+AutoName: Health Activity Widget
+Summary: Visualise your Health Connect activity as a contribution calendar grid.
+Description: |-
+  Shows your Android Health Connect data as a GitHub-style contribution
+  calendar — a 13-week grid where each cell represents one day, lighting up
+  when you hit your goals (10,000 steps or any recorded exercise session).
+
+  Days with multiple activity types show colour bands. Per-activity colour
+  picker and toggles let you customise the display. The widget refreshes
+  hourly and caches data on-device so it never goes blank on wake.
+
+  All data stays on your device. No internet permission, no ads, no tracking.
+
+RepoType: git
+Repo: https://github.com/YOURUSER/health-activity-widget
+
+Builds:
+  - versionName: '1.0'
+    versionCode: 1
+    commit: v1.0
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags

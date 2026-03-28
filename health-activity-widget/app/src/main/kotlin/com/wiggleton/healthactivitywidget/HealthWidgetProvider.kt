@@ -48,7 +48,7 @@ class HealthWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        const val WEEKS = 26
+        const val WEEKS = 13
 
         suspend fun updateWidget(
             context: Context,
@@ -86,24 +86,39 @@ class HealthWidgetProvider : AppWidgetProvider() {
                     )
                 )
 
-                val activityData = repository.getActivityData(
-                    WEEKS,
-                    prefs.showSteps,
-                    prefs.disabledExerciseTypes,
-                )
+                // Render from cache immediately so the widget is never blank on wake
+                val cached = prefs.loadActivityCache()
+                if (cached.isNotEmpty()) {
+                    val cachedBitmap = GridRenderer.render(
+                        toDayColors(cached, prefs), WEEKS, bitmapWidth(options), bitmapHeight(options)
+                    )
+                    views.setImageViewBitmap(R.id.grid_image, cachedBitmap)
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                }
 
-                // Convert activity keys → colors. Seed random with epoch day for stable rendering.
-                dayColors = activityData.mapValues { (date, keys) ->
-                    keys.toList()
-                        .shuffled(Random(date.toEpochDay()))
-                        .take(3)
-                        .map { key -> prefs.getActivityColor(key) }
+                // Fetch fresh data; only update widget and cache if we got a non-empty result
+                val fresh = repository.getActivityData(WEEKS, prefs.showSteps, prefs.disabledExerciseTypes)
+                if (fresh.isNotEmpty()) {
+                    prefs.saveActivityCache(fresh)
+                    dayColors = toDayColors(fresh, prefs)
+                } else {
+                    dayColors = toDayColors(cached, prefs)
                 }
             }
 
             val bitmap = GridRenderer.render(dayColors, WEEKS, bitmapWidth(options), bitmapHeight(options))
             views.setImageViewBitmap(R.id.grid_image, bitmap)
             appWidgetManager.updateAppWidget(appWidgetId, views)
+        }
+
+        private fun toDayColors(
+            data: Map<LocalDate, Set<String>>,
+            prefs: WidgetPreferences,
+        ): Map<LocalDate, List<Int>> = data.mapValues { (date, keys) ->
+            keys.toList()
+                .shuffled(Random(date.toEpochDay()))
+                .take(3)
+                .map { key -> prefs.getActivityColor(key) }
         }
 
         private fun bitmapWidth(options: Bundle): Int {

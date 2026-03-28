@@ -3,6 +3,7 @@ local
 color cell_active
 color cell_inactive
 color widget_background
+drawable ic_launcher_foreground
 id exercise_container
 id exercise_loading
 id grid_image
@@ -13,6 +14,8 @@ id steps_container
 layout activity_config
 layout activity_rationale
 layout widget_layout
+mipmap ic_launcher
+mipmap ic_launcher_round
 string app_name
 string widget_content_description
 string widget_description

@@ -3,9 +3,13 @@ package com.wiggleton.healthactivitywidget
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
+import android.graphics.Shader
 import java.time.LocalDate
 
 /**
@@ -42,7 +46,7 @@ object GridRenderer {
 
         val bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        canvas.drawColor(BACKGROUND_COLOR)
+//        canvas.drawColor(BACKGROUND_COLOR)
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         val cellRect = RectF()
@@ -88,6 +92,18 @@ object GridRenderer {
                 }
             }
         }
+
+        // Fade the leftmost column from transparent (left edge) to opaque (right edge)
+        val fadeRight = (cellW + gap).toFloat()
+        val fadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, 0f, fadeRight, 0f,
+                Color.TRANSPARENT, Color.BLACK,
+                Shader.TileMode.CLAMP,
+            )
+            xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+        }
+        canvas.drawRect(0f, 0f, fadeRight, bitmapHeight.toFloat(), fadePaint)
 
         return bitmap
     }

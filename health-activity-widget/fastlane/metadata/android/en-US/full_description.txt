@@ -1,0 +1,21 @@
+Health Activity Widget shows your Android Health Connect data as a GitHub-style contribution calendar — a 13-week grid where each cell represents one day, lighting up when you hit your goals.
+
+FEATURES
+
+• Step goal tracking — cells highlight when you reach 10,000 steps
+• Exercise session tracking — any exercise type recorded in Health Connect
+• Multi-colour bands — days with multiple activity types show each colour
+• Per-activity colour picker — choose a colour for each activity type
+• Per-activity toggles — hide activity types you don't care about
+• Hourly background refresh with on-device caching — never a blank grid on wake
+• Resizable widget — drag to any size on your home screen
+
+PRIVACY
+
+All data is read directly from Health Connect on your device. Nothing is transmitted anywhere. No internet permission is requested. No analytics, no ads, no accounts.
+
+REQUIREMENTS
+
+Android 8.0 (API 26) or higher and the Health Connect app installed with activity data recorded.
+
+Note: Health Connect is distributed by Google. On de-Googled ROMs where Health Connect is not available, the widget cannot display data.
