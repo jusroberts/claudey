@@ -1,0 +1,4 @@
+Changes:
+* can now retrieve data from more than 30 days ago
+* can now change background color
+* can now manually refresh data

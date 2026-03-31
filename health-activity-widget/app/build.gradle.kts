@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "com.wiggleton.healthactivitywidget"
+    namespace = "com.wiggletonabbey.healthactivitywidget"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.wiggleton.healthactivitywidget"
+        applicationId = "com.wiggletonabbey.healthactivitywidget"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     buildTypes {

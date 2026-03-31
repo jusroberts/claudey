@@ -1,4 +1,4 @@
-package com.wiggleton.healthactivitywidget
+package com.wiggletonabbey.healthactivitywidget
 
 import android.content.Context
 import android.graphics.Color
@@ -14,7 +14,16 @@ class WidgetPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_STEPS, true)
         set(value) = prefs.edit { putBoolean(KEY_SHOW_STEPS, value) }
 
+    var backgroundStyle: Int
+        get() = prefs.getInt(KEY_BACKGROUND_STYLE, BACKGROUND_TRANSPARENT)
+        set(value) = prefs.edit { putInt(KEY_BACKGROUND_STYLE, value) }
+
     /** Exercise type IDs the user has explicitly turned off. All others are shown. */
+    /** Daily step goal used to determine an active day. Defaults to 10,000. */
+    var stepsGoal: Long
+        get() = prefs.getLong(KEY_STEPS_GOAL, 10_000L)
+        set(value) = prefs.edit { putLong(KEY_STEPS_GOAL, value) }
+
     var disabledExerciseTypes: Set<Int>
         get() {
             val raw = prefs.getString(KEY_DISABLED_EXERCISE_TYPES, "") ?: ""
@@ -41,12 +50,14 @@ class WidgetPreferences(context: Context) {
         val index = if (activityKey == STEPS_KEY) {
             0
         } else {
-            val next = prefs.getInt(KEY_NEXT_COLOR_INDEX, 1)
-            prefs.edit { putInt(KEY_NEXT_COLOR_INDEX, if (next >= PRESET_COLORS.lastIndex) 1 else next + 1) }
-            next
+            synchronized(colorIndexLock) {
+                val next = prefs.getInt(KEY_NEXT_COLOR_INDEX, 1)
+                prefs.edit { putInt(KEY_NEXT_COLOR_INDEX, if (next >= PRESET_COLORS.lastIndex) 1 else next + 1) }
+                next
+            }
         }
 
-        val color = PRESET_COLORS[index]
+        val color = PRESET_COLORS[index.coerceIn(0, PRESET_COLORS.lastIndex)]
         prefs.edit { putInt("color_$activityKey", color) }
         return color
     }
@@ -84,10 +95,18 @@ class WidgetPreferences(context: Context) {
         private const val KEY_DISABLED_EXERCISE_TYPES = "disabled_exercise_types"
         private const val KEY_ACTIVITY_CACHE = "activity_cache"
         private const val KEY_NEXT_COLOR_INDEX = "next_color_index"
+        private const val KEY_BACKGROUND_STYLE = "background_style"
+        private const val KEY_STEPS_GOAL = "steps_goal"
+
+        const val BACKGROUND_TRANSPARENT = 0
+        const val BACKGROUND_DARK = 1
+        const val BACKGROUND_LIGHT = 2
         private const val COLOR_NOT_SET = Int.MIN_VALUE
 
         const val STEPS_KEY = "steps"
         fun exerciseKey(typeId: Int) = "exercise_$typeId"
+
+        private val colorIndexLock = Any()
 
         val PRESET_COLORS = listOf(
             Color.parseColor("#39D353"), // green

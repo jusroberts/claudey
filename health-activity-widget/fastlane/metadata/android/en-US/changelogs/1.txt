@@ -1,1 +1,6 @@
-Initial release.
+Creates the health activity widget which:
+
+* loads data from Android Health Connect
+* displays the past 13 weeks of activities in a minimalist github contribution style calendar format
+* each activity type has it's own assignable color
+* up to 3 activities displayed per day

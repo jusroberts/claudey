@@ -69,6 +69,43 @@
             android:visibility="gone"
             android:layout_marginBottom="16dp" />
 
+        <!-- Background -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="BACKGROUND"
+            android:textColor="#8B949E"
+            android:textSize="12sp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="12dp" />
+
+        <LinearLayout
+            android:id="@+id/background_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="32dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Style"
+                android:textColor="#E6EDF3"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/background_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#58A6FF"
+                android:textSize="15sp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp" />
+
+        </LinearLayout>
+
         <!-- Tap color circle to cycle through colours. -->
         <TextView
             android:layout_width="wrap_content"
@@ -79,13 +116,33 @@
             android:layout_marginTop="8dp"
             android:layout_marginBottom="40dp" />
 
+        <TextView
+            android:id="@+id/history_permission_warning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚠ History access not granted — only the last 30 days are visible. Tap to open Health Connect permissions."
+            android:textColor="#E3B341"
+            android:textSize="13sp"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp"
+            android:visibility="gone" />
+
         <Button
             android:id="@+id/save_button"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:text="Save"
             android:textColor="#0D1117"
-            android:backgroundTint="#39D353" />
+            android:backgroundTint="#39D353"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/refresh_button"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Refresh Now"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#21262D" />
 
     </LinearLayout>
 </ScrollView>

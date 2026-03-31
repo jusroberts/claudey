@@ -1,4 +1,4 @@
-package com.wiggleton.healthactivitywidget
+package com.wiggletonabbey.healthactivitywidget
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName

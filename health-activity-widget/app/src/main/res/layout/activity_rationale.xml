@@ -28,7 +28,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="This app reads your step count and exercise sessions from Health Connect to display a contribution-style activity grid on your home screen.\n\nYour health data never leaves your device — it is only used to render the widget locally."
+        android:text="This app reads your step count and exercise sessions from Health Connect to display a contribution-style activity grid on your home screen.\n\nAccess to your health history is requested so the full 13-week grid can be populated — without it, only the last 30 days are visible.\n\nYour health data never leaves your device — it is only used to render the widget locally."
         android:textColor="#E6EDF3"
         android:textSize="16sp"
         android:lineSpacingMultiplier="1.4"

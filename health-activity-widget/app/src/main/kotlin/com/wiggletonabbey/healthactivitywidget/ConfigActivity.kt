@@ -1,7 +1,8 @@
-package com.wiggleton.healthactivitywidget
+package com.wiggletonabbey.healthactivitywidget
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -13,7 +14,7 @@ import android.widget.ProgressBar
 import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -36,7 +37,10 @@ class ConfigActivity : ComponentActivity() {
         val exerciseLoading   = findViewById<ProgressBar>(R.id.exercise_loading)
         val exerciseContainer = findViewById<LinearLayout>(R.id.exercise_container)
         val noExerciseLabel   = findViewById<TextView>(R.id.no_exercise_label)
-        val saveButton        = findViewById<Button>(R.id.save_button)
+        val historyWarning      = findViewById<TextView>(R.id.history_permission_warning)
+        val backgroundValue     = findViewById<TextView>(R.id.background_value)
+        val refreshButton       = findViewById<Button>(R.id.refresh_button)
+        val saveButton          = findViewById<Button>(R.id.save_button)
 
         // Steps row (static — always present)
         stepsContainer.addView(
@@ -48,8 +52,29 @@ class ConfigActivity : ComponentActivity() {
             )
         )
 
+        // Background style — cycles through Transparent → Dark → Light on tap
+        var pendingBackground = prefs.backgroundStyle
+        fun backgroundLabel(style: Int) = when (style) {
+            WidgetPreferences.BACKGROUND_DARK  -> "Dark"
+            WidgetPreferences.BACKGROUND_LIGHT -> "Light"
+            else                               -> "None"
+        }
+        backgroundValue.text = backgroundLabel(pendingBackground)
+        findViewById<View>(R.id.background_row).setOnClickListener {
+            pendingBackground = (pendingBackground + 1) % 3
+            backgroundValue.text = backgroundLabel(pendingBackground)
+        }
+
+        historyWarning.setOnClickListener {
+            startActivity(
+                Intent(this@ConfigActivity, PermissionActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+            )
+        }
+
         // Exercise rows — loaded asynchronously from Health Connect
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val types = HealthConnectRepository(this@ConfigActivity)
                 .getExerciseTypes(HealthWidgetProvider.WEEKS)
 
@@ -74,7 +99,29 @@ class ConfigActivity : ComponentActivity() {
             }
         }
 
+        refreshButton.setOnClickListener {
+            refreshButton.isEnabled = false
+            refreshButton.text = "Refreshing…"
+            val manager   = AppWidgetManager.getInstance(this)
+            val component = ComponentName(this, HealthWidgetProvider::class.java)
+            lifecycleScope.launch(Dispatchers.IO) {
+                manager.getAppWidgetIds(component).forEach { id ->
+                    HealthWidgetProvider.updateWidget(this@ConfigActivity, manager, id)
+                }
+                withContext(Dispatchers.Main) {
+                    refreshButton.text = "Refresh Now"
+                    refreshButton.isEnabled = true
+                }
+            }
+        }
+
+        // Re-checked in onResume so it disappears after returning from PermissionActivity
+        checkHistoryPermission(historyWarning)
+
         saveButton.setOnClickListener {
+            // Persist background style
+            prefs.backgroundStyle = pendingBackground
+
             // Persist color changes
             pendingColors.forEach { (key, color) -> prefs.setActivityColor(key, color) }
 
@@ -88,15 +135,29 @@ class ConfigActivity : ComponentActivity() {
             }
             prefs.disabledExerciseTypes = currentDisabled
 
-            // Refresh all widget instances
+            // Refresh all widget instances, then close
             val manager   = AppWidgetManager.getInstance(this)
             val component = ComponentName(this, HealthWidgetProvider::class.java)
-            manager.getAppWidgetIds(component).forEach { id ->
-                CoroutineScope(Dispatchers.IO).launch {
+            lifecycleScope.launch(Dispatchers.IO) {
+                manager.getAppWidgetIds(component).forEach { id ->
                     HealthWidgetProvider.updateWidget(this@ConfigActivity, manager, id)
                 }
+                withContext(Dispatchers.Main) { finish() }
             }
-            finish()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        checkHistoryPermission(findViewById(R.id.history_permission_warning))
+    }
+
+    private fun checkHistoryPermission(warning: TextView) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val hasHistory = HealthConnectRepository(this@ConfigActivity).hasHistoryPermission()
+            withContext(Dispatchers.Main) {
+                warning.visibility = if (hasHistory) View.GONE else View.VISIBLE
+            }
         }
     }
 
@@ -129,6 +190,7 @@ class ConfigActivity : ComponentActivity() {
 
         val colorCircle = buildColorCircle(activityKey, density)
 
+        // MaterialSwitch requires the Material Components library which is not otherwise a dependency.
         @Suppress("DEPRECATION")
         val switch = Switch(this).apply {
             isChecked = initialEnabled
@@ -156,7 +218,7 @@ class ConfigActivity : ComponentActivity() {
         applyCircle(view)
 
         view.setOnClickListener { v ->
-            val cur   = v.tag as Int
+            val cur   = v.tag as? Int ?: return@setOnClickListener
             val idx   = WidgetPreferences.PRESET_COLORS.indexOf(cur)
             val next  = WidgetPreferences.PRESET_COLORS[(idx + 1) % WidgetPreferences.PRESET_COLORS.size]
             v.tag = next

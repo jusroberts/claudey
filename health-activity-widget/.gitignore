@@ -2,6 +2,8 @@
 build/
 app/build/
 .gradle/
+*.apk
+*.apk.idsig
 
 # Local configuration (machine-specific, never commit)
 local.properties

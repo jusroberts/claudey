@@ -1,4 +1,4 @@
-package com.wiggleton.healthactivitywidget
+package com.wiggletonabbey.healthactivitywidget
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -26,27 +26,38 @@ import java.time.LocalDate
 object GridRenderer {
 
     private const val ROWS = 7
-    private val BACKGROUND_COLOR = Color.parseColor("#0D1117")
-    private val INACTIVE_COLOR   = Color.parseColor("#161B22")
+
+    private val DARK_BACKGROUND  = Color.parseColor("#0D1117")
+    private val DARK_INACTIVE    = Color.parseColor("#161B22")
+    private val LIGHT_BACKGROUND = Color.parseColor("#F6F8FA")
+    private val LIGHT_INACTIVE   = Color.parseColor("#EAEEF2")
 
     fun render(
         dayColors: Map<LocalDate, List<Int>>,
         weeks: Int,
         bitmapWidth: Int,
         bitmapHeight: Int,
+        backgroundStyle: Int = WidgetPreferences.BACKGROUND_TRANSPARENT,
     ): Bitmap {
         val today = LocalDate.now()
-        val todayDow = today.dayOfWeek.value % 7
+        val todayDow = today.dayOfWeek.ordinal // Mon=0 … Sun=6
         val startDate = today.minusDays(todayDow.toLong()).minusWeeks((weeks - 1).toLong())
 
+        require(weeks > 0) { "weeks must be > 0" }
         val gap = maxOf(1, (minOf(bitmapWidth.toFloat() / weeks, bitmapHeight.toFloat() / ROWS) * 0.12f).toInt())
         val cellW = (bitmapWidth  - (weeks - 1) * gap) / weeks
         val cellH = (bitmapHeight - (ROWS  - 1) * gap) / ROWS
         val corner = maxOf(2f, minOf(cellW, cellH) / 5f)
 
+        val inactiveColor = if (backgroundStyle == WidgetPreferences.BACKGROUND_LIGHT) LIGHT_INACTIVE else DARK_INACTIVE
+
         val bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-//        canvas.drawColor(BACKGROUND_COLOR)
+
+        when (backgroundStyle) {
+            WidgetPreferences.BACKGROUND_DARK  -> canvas.drawColor(DARK_BACKGROUND)
+            WidgetPreferences.BACKGROUND_LIGHT -> canvas.drawColor(LIGHT_BACKGROUND)
+        }
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         val cellRect = RectF()
@@ -65,7 +76,7 @@ object GridRenderer {
 
                 when (colors.size) {
                     0 -> {
-                        paint.color = INACTIVE_COLOR
+                        paint.color = inactiveColor
                         canvas.drawRoundRect(cellRect, corner, corner, paint)
                     }
                     1 -> {
@@ -93,17 +104,20 @@ object GridRenderer {
             }
         }
 
-        // Fade the leftmost column from transparent (left edge) to opaque (right edge)
-        val fadeRight = (cellW + gap).toFloat()
-        val fadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                0f, 0f, fadeRight, 0f,
-                Color.TRANSPARENT, Color.BLACK,
-                Shader.TileMode.CLAMP,
-            )
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+        // Fade the leftmost column only for transparent background
+        // (DST_IN would punch a hole through a solid background)
+        if (backgroundStyle == WidgetPreferences.BACKGROUND_TRANSPARENT) {
+            val fadeRight = (cellW + gap).toFloat()
+            val fadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = LinearGradient(
+                    0f, 0f, fadeRight, 0f,
+                    Color.TRANSPARENT, Color.BLACK,
+                    Shader.TileMode.CLAMP,
+                )
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            }
+            canvas.drawRect(0f, 0f, fadeRight, bitmapHeight.toFloat(), fadePaint)
         }
-        canvas.drawRect(0f, 0f, fadeRight, bitmapHeight.toFloat(), fadePaint)
 
         return bitmap
     }

@@ -1,1 +1,1 @@
-Visualise your Health Connect activity as a contribution calendar grid.
+Visualise your Health Connect activity as a github-style calendar grid.

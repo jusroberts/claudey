@@ -1,4 +1,4 @@
-package com.wiggleton.healthactivitywidget
+package com.wiggletonabbey.healthactivitywidget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -21,9 +21,14 @@ class HealthWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
     ) {
-        for (id in appWidgetIds) {
-            CoroutineScope(Dispatchers.IO).launch {
-                updateWidget(context, appWidgetManager, id)
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                for (id in appWidgetIds) {
+                    updateWidget(context, appWidgetManager, id)
+                }
+            } finally {
+                pending.finish()
             }
         }
     }
@@ -34,8 +39,13 @@ class HealthWidgetProvider : AppWidgetProvider() {
         appWidgetId: Int,
         newOptions: Bundle,
     ) {
+        val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
-            updateWidget(context, appWidgetManager, appWidgetId)
+            try {
+                updateWidget(context, appWidgetManager, appWidgetId)
+            } finally {
+                pending.finish()
+            }
         }
     }
 
@@ -49,6 +59,10 @@ class HealthWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val WEEKS = 13
+
+        // Offset so config PendingIntents don't collide with permission PendingIntents (which use appWidgetId directly).
+        private const val CONFIG_PENDING_INTENT_OFFSET = 10_000
+        private const val MAX_BITMAP_PX = 2048
 
         suspend fun updateWidget(
             context: Context,
@@ -81,7 +95,7 @@ class HealthWidgetProvider : AppWidgetProvider() {
                 views.setOnClickPendingIntent(
                     R.id.grid_image,
                     PendingIntent.getActivity(
-                        context, appWidgetId + 10_000, intent,
+                        context, appWidgetId + CONFIG_PENDING_INTENT_OFFSET, intent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
                 )
@@ -90,14 +104,15 @@ class HealthWidgetProvider : AppWidgetProvider() {
                 val cached = prefs.loadActivityCache()
                 if (cached.isNotEmpty()) {
                     val cachedBitmap = GridRenderer.render(
-                        toDayColors(cached, prefs), WEEKS, bitmapWidth(options), bitmapHeight(options)
+                        toDayColors(cached, prefs), WEEKS, bitmapWidth(options), bitmapHeight(options),
+                        prefs.backgroundStyle,
                     )
                     views.setImageViewBitmap(R.id.grid_image, cachedBitmap)
                     appWidgetManager.updateAppWidget(appWidgetId, views)
                 }
 
                 // Fetch fresh data; only update widget and cache if we got a non-empty result
-                val fresh = repository.getActivityData(WEEKS, prefs.showSteps, prefs.disabledExerciseTypes)
+                val fresh = repository.getActivityData(WEEKS, prefs.showSteps, prefs.disabledExerciseTypes, prefs.stepsGoal)
                 if (fresh.isNotEmpty()) {
                     prefs.saveActivityCache(fresh)
                     dayColors = toDayColors(fresh, prefs)
@@ -106,7 +121,7 @@ class HealthWidgetProvider : AppWidgetProvider() {
                 }
             }
 
-            val bitmap = GridRenderer.render(dayColors, WEEKS, bitmapWidth(options), bitmapHeight(options))
+            val bitmap = GridRenderer.render(dayColors, WEEKS, bitmapWidth(options), bitmapHeight(options), prefs.backgroundStyle)
             views.setImageViewBitmap(R.id.grid_image, bitmap)
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
@@ -124,13 +139,13 @@ class HealthWidgetProvider : AppWidgetProvider() {
         private fun bitmapWidth(options: Bundle): Int {
             val density = Resources.getSystem().displayMetrics.density
             return (options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 250) * density)
-                .toInt().coerceAtLeast(200)
+                .toInt().coerceIn(200, MAX_BITMAP_PX)
         }
 
         private fun bitmapHeight(options: Bundle): Int {
             val density = Resources.getSystem().displayMetrics.density
             return (options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 110) * density)
-                .toInt().coerceAtLeast(80)
+                .toInt().coerceIn(80, MAX_BITMAP_PX)
         }
     }
 }

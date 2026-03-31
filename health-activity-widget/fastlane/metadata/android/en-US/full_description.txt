@@ -1,4 +1,4 @@
-Health Activity Widget shows your Android Health Connect data as a GitHub-style contribution calendar — a 13-week grid where each cell represents one day, lighting up when you hit your goals.
+Health Activity Widget shows your Android Health Connect data as a GitHub-style contribution calendar — a 13-week grid where each cell represents one day, lighting up when an activity is present.
 
 FEATURES
 
@@ -7,8 +7,8 @@ FEATURES
 • Multi-colour bands — days with multiple activity types show each colour
 • Per-activity colour picker — choose a colour for each activity type
 • Per-activity toggles — hide activity types you don't care about
-• Hourly background refresh with on-device caching — never a blank grid on wake
-• Resizable widget — drag to any size on your home screen
+• Hourly background refresh plus a manual refresh button if you can't wait
+• Resizable widget (but I suggest the default 2x1 or 3x2)
 
 PRIVACY
 
