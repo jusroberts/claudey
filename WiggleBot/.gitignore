@@ -1,0 +1,15 @@
+# Local machine config — contains SDK path and secrets, never commit
+local.properties
+
+# Build outputs
+build/
+app/build/
+
+# Android Studio
+.idea/
+*.iml
+.gradle/
+captures/
+
+# JVM heap dumps
+*.hprof
