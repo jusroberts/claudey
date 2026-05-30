@@ -19,7 +19,18 @@ import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "CommuteWorker"
+
 private val COMMUTE_DAYS = setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY)
+private val WEEKDAYS = setOf(
+    DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+    DayOfWeek.THURSDAY, DayOfWeek.FRIDAY
+)
+
+// Toronto bounding box (approximate) for afternoon location check
+private const val TORONTO_LAT_MIN = 43.58
+private const val TORONTO_LAT_MAX = 43.85
+private const val TORONTO_LON_MIN = -79.65
+private const val TORONTO_LON_MAX = -79.10
 
 class CommuteWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
@@ -33,10 +44,19 @@ class CommuteWorker(context: Context, params: WorkerParameters) :
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun doWork(): Result {
-        // Worker is scheduled weekly aligned to commute days; guard for safety.
-        if (LocalDate.now().dayOfWeek !in COMMUTE_DAYS) {
-            Log.d(TAG, "Not a commute day — skipping")
-            return Result.success()
+        val isAfternoon = inputData.getBoolean("is_afternoon", false)
+        val today = LocalDate.now().dayOfWeek
+
+        if (isAfternoon) {
+            if (today !in WEEKDAYS) {
+                Log.d(TAG, "Not a weekday — skipping afternoon commute")
+                return Result.success()
+            }
+        } else {
+            if (today !in COMMUTE_DAYS) {
+                Log.d(TAG, "Not a commute day — skipping")
+                return Result.success()
+            }
         }
 
         val loc = lastKnownLocation() ?: run {
@@ -44,12 +64,22 @@ class CommuteWorker(context: Context, params: WorkerParameters) :
             return Result.success()
         }
 
-        val isRunDay = healthConnect.isLikelyRunDay()
-        Log.d(TAG, "isLikelyRunDay=$isRunDay loc=${loc.first},${loc.second}")
+        if (isAfternoon) {
+            val (lat, lon) = loc
+            if (lat !in TORONTO_LAT_MIN..TORONTO_LAT_MAX || lon !in TORONTO_LON_MIN..TORONTO_LON_MAX) {
+                Log.d(TAG, "Not in Toronto ($lat, $lon) — skipping afternoon commute")
+                return Result.success()
+            }
+        }
+
+        val isRunDay = if (isAfternoon) false else healthConnect.isLikelyRunDay()
+        val direction = if (isAfternoon) "inbound" else "outbound"
+
+        Log.d(TAG, "isAfternoon=$isAfternoon isRunDay=$isRunDay loc=${loc.first},${loc.second}")
 
         val serverUrl = settingsRepo.settings.first().serverUrl.trimEnd('/')
         val url = "$serverUrl/api/brief/commute" +
-            "?lat=${loc.first}&lon=${loc.second}&is_run_day=$isRunDay"
+            "?lat=${loc.first}&lon=${loc.second}&is_run_day=$isRunDay&direction=$direction"
 
         return runCatching {
             val body = http.newCall(Request.Builder().url(url).build()).execute()

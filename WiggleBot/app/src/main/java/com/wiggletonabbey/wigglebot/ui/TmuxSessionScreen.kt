@@ -93,7 +93,7 @@ fun TmuxSessionScreen(
                         placeholder = { Text("Send input…", color = TextSecondary, fontSize = 13.sp) },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = { send() }),
-                        maxLines = 3,
+                        maxLines = 8,
                         textStyle = LocalTextStyle.current.copy(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 13.sp,

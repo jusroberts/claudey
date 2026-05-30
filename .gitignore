@@ -1,0 +1,6 @@
+# Claude Code project settings (local, not for version control)
+.claude/
+
+# OS junk
+.DS_Store
+Thumbs.db

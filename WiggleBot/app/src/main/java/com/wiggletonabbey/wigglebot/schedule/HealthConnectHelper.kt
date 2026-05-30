@@ -28,7 +28,8 @@ class HealthConnectHelper(private val context: Context) {
     val requiredPermissions = setOf(
         androidx.health.connect.client.permission.HealthPermission.getReadPermission(
             ExerciseSessionRecord::class
-        )
+        ),
+        androidx.health.connect.client.permission.HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND,
     )
 
     suspend fun isAvailable(): Boolean =
@@ -51,7 +52,7 @@ class HealthConnectHelper(private val context: Context) {
      * day-of-week labels. Falls back to true when there's insufficient history.
      */
     suspend fun isLikelyRunDay(): Boolean = runCatching {
-        if (!isAvailable() || !hasPermission()) return@runCatching true
+        if (!isAvailable() || !hasPermission()) return@runCatching false
 
         val today = LocalDate.now(ZoneId.systemDefault())
         // Only look at runs that finished before today so "today" isn't contaminated.
@@ -101,7 +102,7 @@ class HealthConnectHelper(private val context: Context) {
         probability >= RUN_PROBABILITY_THRESHOLD
     }.getOrElse { e ->
         Log.e(TAG, "isLikelyRunDay failed", e)
-        true
+        false
     }
 
     /** Returns true if the user has logged a run starting today. */

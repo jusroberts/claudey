@@ -1,6 +1,6 @@
 defmodule WigglebotServer.Briefs.CommuteBrief do
   alias WigglebotServer.Briefs.Forecast
-  alias WigglebotServer.GtfsRt.ServiceAlerts
+  alias WigglebotServer.Metrolinx.Client, as: MetrolinxClient
   require Logger
 
   # Morning walk to Milton GO: 7–9am
@@ -10,48 +10,40 @@ defmodule WigglebotServer.Briefs.CommuteBrief do
   @afternoon_start 14
   @afternoon_end 17
 
-  # Metrolinx GTFS-RT service alerts for the Milton GO line.
-  # An empty feed (no alerts) is just a tiny protobuf header (~10 bytes).
-  # Any real service alert adds substantial content, so size is a reliable proxy
-  # until we add full protobuf parsing.
-  @go_alerts_url "https://www.metrolinx.com/googletransit/googleFeed/MiltonLine/GTFS-RT/ServiceAlerts/ServiceAlerts.pb"
-
-  def generate(lat, lon, is_run_day) do
+  def generate(lat, lon, is_run_day, direction \\ "outbound") do
     with {:ok, hourly} <- Forecast.fetch_hourly(lat, lon) do
       morning = hourly |> Forecast.window(@morning_start, @morning_end) |> Forecast.summarise()
       afternoon = hourly |> Forecast.window(@afternoon_start, @afternoon_end) |> Forecast.summarise()
       go = fetch_go_alerts()
 
-      {title, body} = format(morning, afternoon, go, is_run_day)
+      {title, body} = format(morning, afternoon, go, is_run_day, direction)
       {:ok, %{title: title, body: body, go_alerts: go != :clear}}
     end
   end
 
   defp fetch_go_alerts do
-    case Req.get(@go_alerts_url, receive_timeout: 6_000, raw: true) do
-      {:ok, %{status: 200, body: body}} when is_binary(body) ->
-        case ServiceAlerts.parse(body) do
-          {:ok, []}     -> :clear
-          {:ok, texts}  -> {:alerts, texts}
-          {:error, reason} ->
-            Logger.warning("GTFS-RT parse error: #{reason}")
-            :unknown
-        end
-
-      _ ->
-        Logger.warning("Could not fetch GO Milton line alerts")
+    case MetrolinxClient.get_service_alerts() do
+      {:ok, []}    -> :clear
+      {:ok, texts} -> {:alerts, texts}
+      {:error, reason} ->
+        Logger.warning("Metrolinx alerts error: #{reason}")
         :unknown
     end
   end
 
-  defp format(morning, afternoon, go, is_run_day) do
-    m = window_str(morning, "Morning walk")
-    a = window_str(afternoon, "3:40pm")
-    go_str = go_str(go)
-    run_note = if is_run_day, do: " Good conditions for a run too.", else: ""
+  defp format(morning, afternoon, go, is_run_day, direction) do
+    {weather_window, weather_label, train_time} =
+      if direction == "inbound",
+        do: {afternoon, "Afternoon", "3:40pm train home"},
+        else: {morning, "Morning walk", "3:40pm"}
 
-    body = [m, a, go_str] |> Enum.reject(&(&1 == "")) |> Enum.join(" ") |> Kernel.<>(run_note)
-    title = title(morning, go)
+    w = window_str(weather_window, weather_label)
+    a = if direction == "outbound", do: window_str(afternoon, train_time), else: ""
+    go_str = go_str(go)
+    run_note = if is_run_day and direction == "outbound", do: " Good conditions for a run too.", else: ""
+
+    body = [w, a, go_str] |> Enum.reject(&(&1 == "")) |> Enum.join(" ") |> Kernel.<>(run_note)
+    title = title(weather_window, go, direction)
     {title, body}
   end
 
@@ -66,24 +58,24 @@ defmodule WigglebotServer.Briefs.CommuteBrief do
   defp go_str({:alerts, texts}), do: "⚠️ GO alert: #{Enum.join(texts, " / ")}"
   defp go_str(:unknown), do: ""
 
-  defp title(nil, _), do: "🚆 Commute today"
+  defp title(nil, _, _), do: "🚆 Commute today"
 
-  defp title(w, go) do
+  defp title(w, go, direction) do
     alert_prefix = if match?({:alerts, _}, go), do: "⚠️ ", else: ""
 
     weather_label =
       cond do
         Forecast.heavy_precip?(w.code) or (Forecast.rain?(w.code) and w.precip_prob > 50) ->
-          "rain today"
+          if direction == "inbound", do: "rain — head home", else: "rain today"
 
         w.temp < 0 ->
           "freezing — dress warm"
 
         w.temp < 8 ->
-          "cold this morning"
+          if direction == "inbound", do: "cold — head home", else: "cold this morning"
 
         true ->
-          "good conditions"
+          if direction == "inbound", do: "good time to head home", else: "good conditions"
       end
 
     "#{alert_prefix}🚆 Commute — #{weather_label}"

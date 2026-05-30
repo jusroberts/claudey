@@ -203,8 +203,7 @@ class HealthConnectRepository(private val context: Context) {
     private fun buildFilter(weeks: Int): TimeRangeFilter {
         val today = LocalDate.now()
         val zone = ZoneId.systemDefault()
-        val todayDow = today.dayOfWeek.ordinal // Mon=0 … Sun=6
-        val startDate = today.minusDays(todayDow.toLong()).minusWeeks((weeks - 1).toLong())
+        val startDate = weekStartDate(today, weeks)
         return TimeRangeFilter.between(
             startDate.atStartOfDay(zone).toInstant(),
             today.plusDays(1).atStartOfDay(zone).toInstant(),

@@ -20,6 +20,8 @@
 
     <!-- Health Connect: read running sessions for schedule inference -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <!-- Health Connect: allow reading health data from background workers -->
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
 
     <!-- Foreground service for persistent accessibility -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -27,6 +29,19 @@
 
     <!-- OTA APK sideloading -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Exact alarms for morning briefs (fires through Doze) -->
+    <!-- USE_EXACT_ALARM: auto-granted, for reminder/alarm apps (API 33+) -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- SCHEDULE_EXACT_ALARM: fallback for API 31-32 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+
+    <!-- Re-arm alarms after device reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Allow requesting battery optimization exemption so exact alarms fire reliably -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
@@ -104,6 +119,25 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="com.wiggletonabbey.wigglebot.ACTION_BOOK_PARK" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".schedule.BriefAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.wiggletonabbey.wigglebot.ALARM_RUN_BRIEF" />
+                <action android:name="com.wiggletonabbey.wigglebot.ALARM_COMMUTE" />
+                <action android:name="com.wiggletonabbey.wigglebot.ALARM_RUN_REMINDER" />
+                <action android:name="com.wiggletonabbey.wigglebot.ALARM_AFTERNOON_COMMUTE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".schedule.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 

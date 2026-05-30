@@ -11,8 +11,8 @@ android {
         applicationId = "com.wiggletonabbey.healthactivitywidget"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
     }
 
     buildTypes {
@@ -39,4 +39,8 @@ dependencies {
     implementation("androidx.health.connect:connect-client:1.1.0-beta02")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.12.2")
+    testImplementation("androidx.test:core:1.5.0")
 }

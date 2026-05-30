@@ -3,6 +3,13 @@ defmodule WigglebotServer.Tools.ServerTools do
 
   require Logger
 
+  alias WigglebotServer.Metrolinx.Client, as: MetrolinxClient
+
+  def execute("get_go_train_schedule", args, _location_fn) do
+    direction = Map.get(args, "direction", "toronto")
+    fetch_go_schedule(direction)
+  end
+
   def execute("get_weather", args, location_fn) do
     location = Map.get(args, "location")
     fetch_weather(location, location_fn)
@@ -29,6 +36,40 @@ defmodule WigglebotServer.Tools.ServerTools do
 
   def execute(name, _args, _location_fn) do
     {:error, "Unknown server tool: #{name}"}
+  end
+
+  # ── GO Train ─────────────────────────────────────────────────────────────────
+
+  defp fetch_go_schedule(direction) do
+    {from, to, label} =
+      if direction == "toronto" do
+        {Application.get_env(:wigglebot_server, :metrolinx_milton_stop, "ML"),
+         Application.get_env(:wigglebot_server, :metrolinx_union_stop, "UN"),
+         "Toronto (Union Station)"}
+      else
+        {Application.get_env(:wigglebot_server, :metrolinx_union_stop, "UN"),
+         Application.get_env(:wigglebot_server, :metrolinx_milton_stop, "ML"),
+         "Milton"}
+      end
+
+    case MetrolinxClient.get_next_trains(from, to, 2) do
+      {:ok, []} ->
+        {:ok,
+         "No direct GO trains to #{label} found for the rest of today or tomorrow morning. " <>
+           "There may be bus connections available — check the GO Transit app."}
+
+      {:ok, trains} ->
+        parts =
+          Enum.map(trains, fn t ->
+            prefix = if t.is_tomorrow, do: "tomorrow ", else: ""
+            "#{prefix}#{t.departs} (arrives #{t.arrives})"
+          end)
+
+        {:ok, "Next GO trains to #{label}: #{Enum.join(parts, " and ")}"}
+
+      {:error, reason} ->
+        {:error, "GO train schedule unavailable: #{reason}"}
+    end
   end
 
   # ── Weather ─────────────────────────────────────────────────────────────────

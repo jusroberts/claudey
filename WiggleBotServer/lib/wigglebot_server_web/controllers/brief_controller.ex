@@ -17,8 +17,9 @@ defmodule WigglebotServerWeb.BriefController do
   def commute(conn, params) do
     with {:ok, lat, lon} <- parse_coords(params) do
       is_run_day = params["is_run_day"] == "true"
+      direction = params["direction"] || "outbound"
 
-      case CommuteBrief.generate(lat, lon, is_run_day) do
+      case CommuteBrief.generate(lat, lon, is_run_day, direction) do
         {:ok, brief} -> json(conn, brief)
         {:error, reason} -> conn |> put_status(502) |> json(%{error: reason})
       end

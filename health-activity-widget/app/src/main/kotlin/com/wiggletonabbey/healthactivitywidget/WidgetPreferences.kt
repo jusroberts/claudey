@@ -47,19 +47,27 @@ class WidgetPreferences(context: Context) {
         val stored = prefs.getInt("color_$activityKey", COLOR_NOT_SET)
         if (stored != COLOR_NOT_SET) return stored
 
-        val index = if (activityKey == STEPS_KEY) {
-            0
-        } else {
-            synchronized(colorIndexLock) {
-                val next = prefs.getInt(KEY_NEXT_COLOR_INDEX, 1)
-                prefs.edit { putInt(KEY_NEXT_COLOR_INDEX, if (next >= PRESET_COLORS.lastIndex) 1 else next + 1) }
-                next
-            }
-        }
+        return synchronized(colorIndexLock) {
+            // Re-check inside the lock: another thread may have stored the color between the
+            // check above and acquiring the lock.
+            val rechecked = prefs.getInt("color_$activityKey", COLOR_NOT_SET)
+            if (rechecked != COLOR_NOT_SET) return@synchronized rechecked
 
-        val color = PRESET_COLORS[index.coerceIn(0, PRESET_COLORS.lastIndex)]
-        prefs.edit { putInt("color_$activityKey", color) }
-        return color
+            val (index, nextCounterValue) = if (activityKey == STEPS_KEY) {
+                0 to null
+            } else {
+                val next = prefs.getInt(KEY_NEXT_COLOR_INDEX, 1)
+                next to if (next >= PRESET_COLORS.lastIndex) 1 else next + 1
+            }
+
+            val color = PRESET_COLORS[index.coerceIn(0, PRESET_COLORS.lastIndex)]
+            // Single edit/apply so the counter and the color land atomically.
+            prefs.edit {
+                if (nextCounterValue != null) putInt(KEY_NEXT_COLOR_INDEX, nextCounterValue)
+                putInt("color_$activityKey", color)
+            }
+            color
+        }
     }
 
     fun setActivityColor(activityKey: String, color: Int) =

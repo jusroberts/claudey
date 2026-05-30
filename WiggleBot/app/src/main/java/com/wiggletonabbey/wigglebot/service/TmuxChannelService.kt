@@ -72,14 +72,17 @@ class TmuxChannelService(
 
     fun sendInput(text: String) {
         val jRef = joinRef ?: return
-        val msg = buildJsonObject {
-            put("join_ref", jRef)
-            put("ref", nextRef())
-            put("topic", topic)
-            put("event", "send_input")
-            put("payload", buildJsonObject { put("text", text) })
+        // tmux send-keys has arg-length limits; chunk long input to avoid silent truncation
+        text.chunked(500).forEach { chunk ->
+            val msg = buildJsonObject {
+                put("join_ref", jRef)
+                put("ref", nextRef())
+                put("topic", topic)
+                put("event", "send_input")
+                put("payload", buildJsonObject { put("text", chunk) })
+            }
+            ws?.send(msg.toString())
         }
-        ws?.send(msg.toString())
     }
 
     private fun sendJoin(webSocket: WebSocket) {

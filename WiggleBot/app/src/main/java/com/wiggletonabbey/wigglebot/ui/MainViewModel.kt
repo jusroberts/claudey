@@ -1,14 +1,18 @@
 package com.wiggletonabbey.wigglebot.ui
 
+import android.app.AlarmManager
 import android.app.Application
+import android.app.PendingIntent
 import android.content.Intent
+import android.os.Build
+import android.os.PowerManager
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
+import com.wiggletonabbey.wigglebot.schedule.AlarmScheduler
 import com.wiggletonabbey.wigglebot.schedule.HealthConnectHelper
 import com.wiggletonabbey.wigglebot.service.AgentSettings
 import com.wiggletonabbey.wigglebot.service.ChannelEvent
@@ -168,28 +172,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _scheduleStatus = MutableStateFlow<String?>(null)
     val scheduleStatus = _scheduleStatus.asStateFlow()
 
+    private val _batteryOptExempt = MutableStateFlow(false)
+    val batteryOptExempt = _batteryOptExempt.asStateFlow()
+
+    fun refreshBatteryOptStatus() {
+        val pm = getApplication<Application>().getSystemService(PowerManager::class.java)
+        _batteryOptExempt.value = pm.isIgnoringBatteryOptimizations(getApplication<Application>().packageName)
+    }
+
     fun checkSchedule() {
-        val wm = WorkManager.getInstance(getApplication())
-        val names = listOf("run_brief", "commute_brief", "run_reminder")
-        viewModelScope.launch {
-            _scheduleStatus.value = names.map { name ->
-                val infos = wm.getWorkInfosForUniqueWorkFlow(name).first()
-                if (infos.isEmpty()) {
-                    "$name: NOT SCHEDULED"
-                } else {
-                    val info = infos.first()
-                    val stateLabel = when (info.state) {
-                        WorkInfo.State.ENQUEUED  -> "ENQUEUED"
-                        WorkInfo.State.RUNNING   -> "RUNNING"
-                        WorkInfo.State.SUCCEEDED -> "SUCCEEDED"
-                        WorkInfo.State.FAILED    -> "FAILED"
-                        WorkInfo.State.BLOCKED   -> "BLOCKED"
-                        WorkInfo.State.CANCELLED -> "CANCELLED"
-                    }
-                    "$name: $stateLabel"
-                }
-            }.joinToString("\n")
-        }
+        val app = getApplication<Application>()
+        val am = app.getSystemService(AlarmManager::class.java)
+
+        val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            am.canScheduleExactAlarms()
+        } else true
+
+        val alarms = listOf(
+            AlarmScheduler.ACTION_RUN_BRIEF         to "run_brief (6am daily)",
+            AlarmScheduler.ACTION_COMMUTE           to "commute (5:30am Mon/Thu)",
+            AlarmScheduler.ACTION_AFTERNOON_COMMUTE to "afternoon_commute (3pm weekdays)",
+            AlarmScheduler.ACTION_RUN_REMINDER      to "run_reminder (6pm daily)",
+        )
+
+        val lines = buildString {
+            appendLine("Exact alarm permission: ${if (canScheduleExact) "✓ GRANTED" else "✗ DENIED"}")
+            alarms.forEach { (action, label) ->
+                val pi = PendingIntent.getBroadcast(
+                    app, action.hashCode(),
+                    Intent(action).setPackage(app.packageName),
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+                )
+                appendLine("$label: ${if (pi != null) "✓ armed" else "✗ NOT SCHEDULED"}")
+            }
+        }.trimEnd()
+
+        _scheduleStatus.value = lines
     }
 
     fun fireRunBriefNow() {
@@ -205,6 +223,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun fireCommuteNow() {
         WorkManager.getInstance(getApplication())
             .enqueue(OneTimeWorkRequestBuilder<CommuteWorker>().build())
+    }
+
+    fun fireAfternoonCommuteNow() {
+        WorkManager.getInstance(getApplication())
+            .enqueue(
+                OneTimeWorkRequestBuilder<CommuteWorker>()
+                    .setInputData(androidx.work.workDataOf("is_afternoon" to true))
+                    .build()
+            )
     }
 
     fun testHealthConnect() {
@@ -253,7 +280,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }.getOrElse { return@repeat }
 
-                val obj = json.parseToJsonElement(body).jsonObject
+                val obj = runCatching { json.parseToJsonElement(body).jsonObject }.getOrElse { return@repeat }
                 val status = obj["status"]?.jsonPrimitive?.content ?: return@repeat
                 val message = obj["message"]?.jsonPrimitive?.content ?: ""
                 _buildStatus.value = "[$status] $message"

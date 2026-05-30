@@ -1,5 +1,5 @@
 import Config
-
+import_config "local.exs"
 # Configures Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Finch, finch_name: WigglebotServer.Finch
 

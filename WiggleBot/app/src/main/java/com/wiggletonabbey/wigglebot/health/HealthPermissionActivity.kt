@@ -20,7 +20,10 @@ class HealthPermissionActivity : ComponentActivity() {
             return
         }
         requestPermissions.launch(
-            setOf(HealthPermission.getReadPermission(ExerciseSessionRecord::class))
+            setOf(
+                HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+                HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND,
+            )
         )
     }
 }

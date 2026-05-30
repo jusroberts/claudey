@@ -20,19 +20,22 @@ if System.get_env("PHX_SERVER") do
   config :wigglebot_server, WigglebotServerWeb.Endpoint, server: true
 end
 
-if config_env() == :prod do
-  config :wigglebot_server,
-    llama_url: System.get_env("LLAMA_URL") || raise("LLAMA_URL env var is missing"),
-    google_maps_api_key: System.get_env("GOOGLE_MAPS_API_KEY") || "",
-    park_booking: [
-      membership_code: System.get_env("PARK_MEMBERSHIP") || "",
-      name:            System.get_env("PARK_NAME") || "",
-      email:           System.get_env("PARK_EMAIL") || "",
-      phone:           System.get_env("PARK_PHONE") || "",
-      license_plate:   System.get_env("PARK_PLATE") || "",
-      postal_code:     System.get_env("PARK_POSTAL_CODE") || "",
-    ]
+if File.exists?("config/local.exs") do
+else
 
+  if config_env() == :prod do
+    config :wigglebot_server,
+      llama_url: System.get_env("LLAMA_URL") || raise("LLAMA_URL env var is missing"),
+      google_maps_api_key: System.get_env("GOOGLE_MAPS_API_KEY") || "",
+      park_booking: [
+        membership_code: System.get_env("PARK_MEMBERSHIP") || "",
+        name:            System.get_env("PARK_NAME") || "",
+        email:           System.get_env("PARK_EMAIL") || "",
+        phone:           System.get_env("PARK_PHONE") || "",
+        license_plate:   System.get_env("PARK_PLATE") || "",
+        postal_code:     System.get_env("PARK_POSTAL_CODE") || "",
+      ]
+end
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

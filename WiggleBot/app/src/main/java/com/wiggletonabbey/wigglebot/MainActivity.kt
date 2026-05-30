@@ -1,8 +1,12 @@
 package com.wiggletonabbey.wigglebot
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,7 +25,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.wiggletonabbey.wigglebot.notifications.NotificationHelper
-import com.wiggletonabbey.wigglebot.schedule.WorkScheduler
+import com.wiggletonabbey.wigglebot.schedule.AlarmScheduler
 import com.wiggletonabbey.wigglebot.ui.ChatScreen
 import com.wiggletonabbey.wigglebot.ui.MainViewModel
 import com.wiggletonabbey.wigglebot.ui.SettingsScreen
@@ -62,8 +66,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         NotificationHelper.createChannels(this)
-        WorkScheduler.schedule(this)
+        AlarmScheduler.schedule(this)
         requestRuntimePermissions()
+        requestBatteryOptExemption()
 
         val keyPreview = BuildConfig.GOOGLE_MAPS_API_KEY.take(4).ifEmpty { "(empty)" }
         Log.d("WiggleBot", "GOOGLE_MAPS_API_KEY prefix: $keyPreview")
@@ -94,6 +99,18 @@ class MainActivity : ComponentActivity() {
         } else {
             requestHealthConnectPermissions()
         }
+    }
+
+    private fun requestBatteryOptExemption() {
+        val pm = getSystemService(PowerManager::class.java)
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            )
+        }
+        viewModel.refreshBatteryOptStatus()
     }
 
     private fun requestHealthConnectPermissions() {

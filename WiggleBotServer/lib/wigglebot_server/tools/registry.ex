@@ -222,6 +222,27 @@ defmodule WigglebotServer.Tools.Registry do
           required: ["destination"]
         }
       }
+    },
+    %{
+      side: :server,
+      type: "function",
+      function: %{
+        name: "get_go_train_schedule",
+        description:
+          "Get the next GO Train departures on the Milton line. Use when the user asks 'when is the next train to Toronto', 'next train to Milton', or similar.",
+        parameters: %{
+          type: "object",
+          properties: %{
+            direction: %{
+              type: "string",
+              enum: ["toronto", "milton"],
+              description:
+                "'toronto' = Milton GO → Union Station; 'milton' = Union Station → Milton GO"
+            }
+          },
+          required: ["direction"]
+        }
+      }
     }
   ]
 

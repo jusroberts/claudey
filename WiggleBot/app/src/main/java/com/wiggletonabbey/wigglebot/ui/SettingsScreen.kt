@@ -1,6 +1,8 @@
 package com.wiggletonabbey.wigglebot.ui
 
 import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -39,6 +41,7 @@ fun SettingsScreen(
     val healthConnectTestResult by viewModel.healthConnectTestResult.collectAsState()
     val scheduleStatus by viewModel.scheduleStatus.collectAsState()
     val buildStatus by viewModel.buildStatus.collectAsState()
+    val batteryOptExempt by viewModel.batteryOptExempt.collectAsState()
 
     // Local mutable copies for the form fields
     var serverUrl    by remember(currentSettings.serverUrl)    { mutableStateOf(currentSettings.serverUrl) }
@@ -207,6 +210,42 @@ fun SettingsScreen(
                 }
             }
 
+            InfoCard(
+                title = "Battery Optimization",
+                body = "Android may suppress exact alarms (6am run brief, commute reminders) " +
+                        "while the app is in the background. Exempting WiggleBot ensures alarms " +
+                        "fire on time even when the screen is off.",
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:${context.packageName}"),
+                            ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                        )
+                        viewModel.refreshBatteryOptStatus()
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(TextSecondary.copy(alpha = 0.4f))
+                    ),
+                ) {
+                    Text("Request exemption →")
+                }
+
+                val (optColor, optLabel) = if (batteryOptExempt)
+                    ToolGreen to "✓ Exempt"
+                else
+                    ErrorRed to "✗ Optimized (alarms may be delayed)"
+                Text(optLabel, color = optColor, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+            }
+
             HorizontalDivider(color = SurfaceVariant, thickness = 1.dp)
 
             // ── Notifications ────────────────────────────────────────────────
@@ -256,6 +295,16 @@ fun SettingsScreen(
                     ),
                 ) {
                     Text("Fire commute now")
+                }
+
+                OutlinedButton(
+                    onClick = { viewModel.fireAfternoonCommuteNow() },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Amber),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(AmberDim)
+                    ),
+                ) {
+                    Text("Fire afternoon commute now")
                 }
             }
 
