@@ -48,6 +48,38 @@ The weekly anomaly report runs Sundays 18:30 (America/Toronto, configured in
 `config/config.exs` under `WigglebotServer.Scheduler`). Trigger one manually
 with: `WigglebotServer.Finance.AnomalyReport.run_weekly()` in `iex`.
 
+## Garmin (optional — richer run data)
+
+Health Connect sync from the phone works with zero setup. To also pull
+directly from Garmin (HR/elevation without the phone in the loop), set:
+
+- `GARMIN_ACCESS_TOKEN` — OAuth2 bearer token from your Garmin developer
+  account's user-consent flow
+- `GARMIN_API_URL` — defaults to `https://apis.garmin.com`
+
+The daily 05:30 job calls the Wellness Activity API
+(`/wellness-api/rest/activities?uploadStartTimeInSeconds=...`). If your API
+tier exposes a different surface, adjust
+`lib/wigglebot_server/running/garmin_client.ex` (`fetch_activities/2`) —
+everything downstream only needs the mapped run fields.
+
+## Coach & digest
+
+No setup needed beyond the above. Schedules (config/config.exs, Scheduler):
+- Sun 19:00 — next week's training plan (LLM via llama.cpp; heuristic
+  fallback when unreachable)
+- Daily 06:30 — unified morning digest push
+- Daily 18:00 — FCM wake for the run-reminder worker
+- Daily 05:30 — Garmin pull (no-op if unconfigured)
+- Sun 18:30 — finance anomaly report
+
+Trigger any of these manually in `iex -S mix`:
+`WigglebotServer.Running.Coach.replan_current_week()`,
+`WigglebotServer.Digest.send_morning_digest()`, etc.
+
+After installing the new APK, re-grant Health Connect permissions — the
+coach needs the new distance/heart-rate/elevation/calories read scopes.
+
 ## Server database
 
 SQLite via Ecto; migrations run automatically at boot. Database file defaults

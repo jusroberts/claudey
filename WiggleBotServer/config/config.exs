@@ -31,7 +31,7 @@ config :wigglebot_server, WigglebotServer.Scheduler,
     # 6pm alarm stays as belt-and-braces; both post the same notification id.
     run_reminder_wake: [
       schedule: "0 18 * * *",
-      task: {WigglebotServer.Push, :wake, ["run_reminder"]}
+      task: {WigglebotServer.Running, :wake_run_reminder, []}
     ],
     # Daily 05:30 — pull yesterday's Garmin activities (no-op if unconfigured)
     garmin_sync: [

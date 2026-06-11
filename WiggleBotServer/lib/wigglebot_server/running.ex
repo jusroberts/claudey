@@ -66,6 +66,21 @@ defmodule WigglebotServer.Running do
   end
 
   @doc """
+  Cron entry for the 18:00 reminder: skips the FCM wake entirely when a run
+  is already synced for today, otherwise wakes the phone's reminder worker
+  (which re-checks Health Connect locally).
+  """
+  def wake_run_reminder do
+    if ran_on?(Date.utc_today()) do
+      require Logger
+      Logger.info("Run reminder wake skipped — already ran today")
+      :ok
+    else
+      WigglebotServer.Push.wake("run_reminder")
+    end
+  end
+
+  @doc """
   Weekly training load for the `weeks` weeks ending today: list of maps
   (oldest first) with week_start, runs, distance_km, duration_min,
   elevation_m, avg_hr.
