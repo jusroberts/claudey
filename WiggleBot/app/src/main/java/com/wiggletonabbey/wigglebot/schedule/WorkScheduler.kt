@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -75,8 +76,17 @@ object AlarmScheduler {
             Intent(action).setPackage(context.packageName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pi)
-        Log.d(TAG, "Scheduled $action at ${Date(triggerAtMs)}")
+        // On API 31+ setExactAndAllowWhileIdle throws SecurityException when the
+        // SCHEDULE_EXACT_ALARM permission is revoked — fall back to an inexact
+        // alarm instead of crashing/silently not firing.
+        val canExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms()
+        if (canExact) {
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pi)
+            Log.d(TAG, "Scheduled $action (exact) at ${Date(triggerAtMs)}")
+        } else {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMs, pi)
+            Log.w(TAG, "Exact alarms not permitted — scheduled $action (inexact) at ${Date(triggerAtMs)}")
+        }
     }
 
     private fun nextOccurrenceMs(hour: Int, minute: Int): Long {

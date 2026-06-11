@@ -116,3 +116,26 @@ end
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 end
+
+# ── Always-applied runtime overrides (any env) ────────────────────────────────
+
+if path = System.get_env("FCM_SERVICE_ACCOUNT_PATH") do
+  config :wigglebot_server, :fcm_service_account_path, path
+end
+
+if db = System.get_env("DATABASE_PATH") do
+  config :wigglebot_server, WigglebotServer.Repo, database: db
+end
+
+if url = System.get_env("ACTUAL_API_URL") do
+  config :wigglebot_server, :actual_api,
+    url: url,
+    api_key: System.get_env("ACTUAL_API_KEY") || "",
+    sync_id: System.get_env("ACTUAL_SYNC_ID") || ""
+end
+
+if token = System.get_env("GARMIN_ACCESS_TOKEN") do
+  config :wigglebot_server,
+    garmin_access_token: token,
+    garmin_api_url: System.get_env("GARMIN_API_URL") || "https://apis.garmin.com"
+end

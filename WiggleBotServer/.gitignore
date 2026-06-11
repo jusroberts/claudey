@@ -31,3 +31,8 @@ wigglebot_server-*.tar
 # Built APKs (contain embedded secrets from local.properties)
 /priv/static/builds/
 
+
+# SQLite database files
+/data/
+*.db
+*.db-*

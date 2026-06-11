@@ -8,6 +8,7 @@ import androidx.work.WorkerParameters
 import com.wiggletonabbey.wigglebot.notifications.EXTRA_INVENTORY_ID
 import com.wiggletonabbey.wigglebot.notifications.EXTRA_PARK_NAME
 import com.wiggletonabbey.wigglebot.notifications.NotificationHelper
+import com.wiggletonabbey.wigglebot.schedule.WorkerOutcomeStore
 import com.wiggletonabbey.wigglebot.service.SettingsRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
@@ -36,15 +37,30 @@ class RunningWeatherWorker(context: Context, params: WorkerParameters) :
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun doWork(): Result {
+        // Always Result.success() so WorkManager doesn't retry-spam; the outcome
+        // (including errors) is recorded for the Settings diagnostics panel.
+        val outcome = runCatching { postBrief() }.getOrElse { e ->
+            Log.e(TAG, "Run brief failed", e)
+            "error: ${e.message?.take(120) ?: e.javaClass.simpleName}"
+        }
+        Log.d(TAG, "Outcome: $outcome")
+        runCatching {
+            WorkerOutcomeStore.record(applicationContext, WorkerOutcomeStore.KEY_RUN_BRIEF, outcome)
+        }.onFailure { Log.e(TAG, "Failed to record outcome", it) }
+        return Result.success()
+    }
+
+    /** Runs the brief logic and returns the outcome string to record. */
+    private suspend fun postBrief(): String {
         // Commute worker fires at 5:30am on Mon/Thu and already covers running — skip.
         if (LocalDate.now().dayOfWeek in COMMUTE_DAYS) {
             Log.d(TAG, "Commute day — deferring to CommuteWorker")
-            return Result.success()
+            return "skipped: commute day — CommuteWorker covers it"
         }
 
         val loc = lastKnownLocation() ?: run {
             Log.w(TAG, "No location available")
-            return Result.success()
+            return "error: no location available"
         }
 
         val serverUrl = settingsRepo.settings.first().serverUrl.trimEnd('/')
@@ -53,33 +69,44 @@ class RunningWeatherWorker(context: Context, params: WorkerParameters) :
         val today = LocalDate.now().dayOfWeek
         val isWeekend = today == DayOfWeek.SATURDAY || today == DayOfWeek.SUNDAY
 
-        return runCatching {
+        val actions = if (isWeekend) {
+            listOf(
+                NotificationHelper.parkBookingAction(
+                    applicationContext, "Book Hilton Falls",
+                    INVENTORY_HILTON_FALLS, "Hilton Falls", 2001
+                ),
+                NotificationHelper.parkBookingAction(
+                    applicationContext, "Book Rattlesnake",
+                    INVENTORY_RATTLESNAKE, "Rattlesnake Point", 2002
+                ),
+            )
+        } else emptyList()
+
+        val fetched = runCatching {
             val body = http.newCall(Request.Builder().url(url).build()).execute()
                 .use { it.body?.string() ?: "" }
 
             val obj = json.parseToJsonElement(body).jsonObject
-            val title = obj["title"]?.jsonPrimitive?.content ?: return Result.success()
+            val title = obj["title"]?.jsonPrimitive?.content ?: error("server response missing title")
             val briefBody = obj["body"]?.jsonPrimitive?.content ?: ""
-
-            val actions = if (isWeekend) {
-                listOf(
-                    NotificationHelper.parkBookingAction(
-                        applicationContext, "Book Hilton Falls",
-                        INVENTORY_HILTON_FALLS, "Hilton Falls", 2001
-                    ),
-                    NotificationHelper.parkBookingAction(
-                        applicationContext, "Book Rattlesnake",
-                        INVENTORY_RATTLESNAKE, "Rattlesnake Point", 2002
-                    ),
-                )
-            } else emptyList()
-
-            NotificationHelper.postRunBrief(applicationContext, title, briefBody, actions)
-            Log.d(TAG, "Posted: $title (weekend=$isWeekend)")
-            Result.success()
+            title to briefBody
         }.getOrElse { e ->
-            Log.e(TAG, "Failed to fetch run brief", e)
-            Result.success()
+            Log.e(TAG, "Failed to fetch run brief — posting default", e)
+            null
+        }
+
+        return if (fetched != null) {
+            NotificationHelper.postRunBrief(applicationContext, fetched.first, fetched.second, actions)
+            Log.d(TAG, "Posted: ${fetched.first} (weekend=$isWeekend)")
+            "fired"
+        } else {
+            NotificationHelper.postRunBrief(
+                applicationContext,
+                "🏃 Morning run brief",
+                "Couldn't reach the server for running conditions — check the weather before heading out.",
+                actions,
+            )
+            "fired (default content — server unreachable)"
         }
     }
 

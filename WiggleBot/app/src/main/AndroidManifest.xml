@@ -22,6 +22,11 @@
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <!-- Health Connect: allow reading health data from background workers -->
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+    <!-- Health Connect: run metrics for the coach (distance, HR, elevation, calories) -->
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_ELEVATION_GAINED" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
 
     <!-- Foreground service for persistent accessibility -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -112,6 +117,15 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- FCM push: finance reports + server-driven reminder wakes -->
+        <service
+            android:name=".service.WigglebotFcmService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
         </service>
 
         <receiver

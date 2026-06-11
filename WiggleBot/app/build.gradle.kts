@@ -7,6 +7,12 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// FCM only activates when the Firebase config is present, so the app
+// still builds (without push) before the Firebase project is set up.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) load(f.inputStream())
@@ -68,5 +74,6 @@ dependencies {
     implementation(libs.androidx.car.app)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.health.connect)
+    implementation(libs.firebase.messaging)
     debugImplementation(libs.androidx.ui.tooling)
 }

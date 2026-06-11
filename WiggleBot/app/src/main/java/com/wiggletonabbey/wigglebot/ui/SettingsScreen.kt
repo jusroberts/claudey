@@ -26,7 +26,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wiggletonabbey.wigglebot.BuildConfig
 import com.wiggletonabbey.wigglebot.health.HealthPermissionActivity
+import com.wiggletonabbey.wigglebot.schedule.WorkerOutcomeStore
 import com.wiggletonabbey.wigglebot.service.AgentSettings
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +46,12 @@ fun SettingsScreen(
     val scheduleStatus by viewModel.scheduleStatus.collectAsState()
     val buildStatus by viewModel.buildStatus.collectAsState()
     val batteryOptExempt by viewModel.batteryOptExempt.collectAsState()
+    val notificationDiagnostics by viewModel.notificationDiagnostics.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshBatteryOptStatus()
+        viewModel.refreshNotificationDiagnostics()
+    }
 
     // Local mutable copies for the form fields
     var serverUrl    by remember(currentSettings.serverUrl)    { mutableStateOf(currentSettings.serverUrl) }
@@ -67,8 +77,9 @@ fun SettingsScreen(
                         onClick = {
                             viewModel.saveSettings(
                                 AgentSettings(
-                                    serverUrl    = serverUrl.trim(),
-                                    systemPrompt = systemPrompt,
+                                    serverUrl       = serverUrl.trim(),
+                                    systemPrompt    = systemPrompt,
+                                    useRunPredictor = currentSettings.useRunPredictor,
                                 )
                             )
                         }
@@ -104,7 +115,13 @@ fun SettingsScreen(
             ) {
                 OutlinedButton(
                     onClick = {
-                        viewModel.saveSettings(AgentSettings(serverUrl = serverUrl.trim(), systemPrompt = systemPrompt))
+                        viewModel.saveSettings(
+                            AgentSettings(
+                                serverUrl       = serverUrl.trim(),
+                                systemPrompt    = systemPrompt,
+                                useRunPredictor = currentSettings.useRunPredictor,
+                            )
+                        )
                         viewModel.checkConnection()
                     },
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Amber),
@@ -210,42 +227,6 @@ fun SettingsScreen(
                 }
             }
 
-            InfoCard(
-                title = "Battery Optimization",
-                body = "Android may suppress exact alarms (6am run brief, commute reminders) " +
-                        "while the app is in the background. Exempting WiggleBot ensures alarms " +
-                        "fire on time even when the screen is off.",
-            )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                Uri.parse("package:${context.packageName}"),
-                            ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                        )
-                        viewModel.refreshBatteryOptStatus()
-                    },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(TextSecondary.copy(alpha = 0.4f))
-                    ),
-                ) {
-                    Text("Request exemption →")
-                }
-
-                val (optColor, optLabel) = if (batteryOptExempt)
-                    ToolGreen to "✓ Exempt"
-                else
-                    ErrorRed to "✗ Optimized (alarms may be delayed)"
-                Text(optLabel, color = optColor, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-            }
-
             HorizontalDivider(color = SurfaceVariant, thickness = 1.dp)
 
             // ── Notifications ────────────────────────────────────────────────
@@ -255,6 +236,39 @@ fun SettingsScreen(
                 title = "Scheduled workers",
                 body = "Three background jobs handle morning run briefs, commute briefs, and evening run reminders.",
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        "Only remind on likely run days",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                    )
+                    Text(
+                        "Use your run history to skip the 6pm nudge on probable rest days. " +
+                                "When off, you get the reminder any day you haven't run yet.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                    )
+                }
+                Switch(
+                    checked = currentSettings.useRunPredictor,
+                    onCheckedChange = { viewModel.setUseRunPredictor(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Amber,
+                        checkedTrackColor = AmberDim,
+                    ),
+                )
+            }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
@@ -323,6 +337,208 @@ fun SettingsScreen(
                         fontFamily = FontFamily.Monospace,
                         lineHeight = 18.sp,
                     )
+                }
+            }
+
+            HorizontalDivider(color = SurfaceVariant, thickness = 1.dp)
+
+            // ── Notification diagnostics ─────────────────────────────────────
+            SectionHeader("Notification Diagnostics")
+
+            OutlinedButton(
+                onClick = { viewModel.refreshNotificationDiagnostics() },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Amber),
+                border = ButtonDefaults.outlinedButtonBorder.copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(AmberDim)
+                ),
+            ) {
+                Text("Refresh")
+            }
+
+            notificationDiagnostics?.let { diag ->
+                // Global + per-channel notification status
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SurfaceVariant)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Notifications (global)", color = TextPrimary, fontSize = 13.sp)
+                        Text(
+                            if (diag.notificationsEnabled) "✓ enabled" else "✗ disabled",
+                            color = if (diag.notificationsEnabled) ToolGreen else ErrorRed,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                        )
+                    }
+
+                    diag.channels.forEach { channel ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                channel.name,
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                if (channel.enabled) "✓ enabled" else "✗ disabled",
+                                color = if (channel.enabled) ToolGreen else ErrorRed,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                            )
+                            TextButton(
+                                onClick = {
+                                    context.startActivity(
+                                        Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+                                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                            putExtra(Settings.EXTRA_CHANNEL_ID, channel.id)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                    )
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                            ) {
+                                Text("Open", color = Amber, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+
+                // Exact alarm permission
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        if (diag.canScheduleExactAlarms)
+                            "Exact alarms: ✓ allowed"
+                        else
+                            "Exact alarms: ✗ denied (using inexact fallback)",
+                        color = if (diag.canScheduleExactAlarms) ToolGreen else ErrorRed,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                    if (!diag.canScheduleExactAlarms) {
+                        OutlinedButton(
+                            onClick = {
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                        Uri.parse("package:${context.packageName}"),
+                                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                )
+                                viewModel.refreshNotificationDiagnostics()
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                            border = ButtonDefaults.outlinedButtonBorder.copy(
+                                brush = androidx.compose.ui.graphics.SolidColor(TextSecondary.copy(alpha = 0.4f))
+                            ),
+                        ) {
+                            Text("Allow exact alarms →")
+                        }
+                    }
+                }
+            }
+
+            // Battery optimization exemption
+            InfoCard(
+                title = "Battery Optimization",
+                body = "Android may suppress exact alarms (6am run brief, commute reminders) " +
+                        "while the app is in the background. Exempting WiggleBot ensures alarms " +
+                        "fire on time even when the screen is off.",
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:${context.packageName}"),
+                            ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                        )
+                        viewModel.refreshBatteryOptStatus()
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(TextSecondary.copy(alpha = 0.4f))
+                    ),
+                ) {
+                    Text("Request exemption →")
+                }
+
+                val (optColor, optLabel) = if (batteryOptExempt)
+                    ToolGreen to "✓ Exempt"
+                else
+                    ErrorRed to "✗ Optimized (alarms may be delayed)"
+                Text(optLabel, color = optColor, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+            }
+
+            // Last worker outcomes
+            notificationDiagnostics?.let { diag ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SurfaceVariant)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "Last worker outcomes",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                    )
+                    listOf(
+                        WorkerOutcomeStore.KEY_RUN_BRIEF    to "run_brief (6am)",
+                        WorkerOutcomeStore.KEY_COMMUTE      to "commute (5:30am / 3pm)",
+                        WorkerOutcomeStore.KEY_RUN_REMINDER to "run_reminder (6pm)",
+                    ).forEach { (key, label) ->
+                        val outcome = diag.workerOutcomes[key]
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                label,
+                                color = TextPrimary,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                            )
+                            if (outcome != null) {
+                                Text(
+                                    "${outcome.outcome} — ${formatOutcomeTime(outcome.timestampMs)}",
+                                    color = when {
+                                        outcome.outcome.startsWith("error") -> ErrorRed
+                                        outcome.outcome.startsWith("fired") -> ToolGreen
+                                        else -> TextSecondary
+                                    },
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    lineHeight = 16.sp,
+                                )
+                            } else {
+                                Text(
+                                    "no run recorded yet",
+                                    color = TextSecondary,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -474,6 +690,11 @@ private fun AnimatedSaveButton(visible: Boolean, onClick: () -> Unit) {
         }
     }
 }
+
+private val OUTCOME_TIME_FORMAT = DateTimeFormatter.ofPattern("EEE MMM d, HH:mm")
+
+private fun formatOutcomeTime(epochMs: Long): String =
+    Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).format(OUTCOME_TIME_FORMAT)
 
 @Composable
 private fun SectionHeader(title: String) {

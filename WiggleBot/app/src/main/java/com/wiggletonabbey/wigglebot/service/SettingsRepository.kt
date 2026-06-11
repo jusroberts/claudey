@@ -4,6 +4,7 @@ import android.content.Context
 import com.wiggletonabbey.wigglebot.BuildConfig
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -15,10 +16,12 @@ val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(na
 data class AgentSettings(
     val serverUrl: String = "https://wiggleton-server.tail22bb77.ts.net:11435",
     val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
+    val useRunPredictor: Boolean = false,
 )
 
-private val KEY_SERVER_URL    = stringPreferencesKey("server_url")
-private val KEY_SYSTEM_PROMPT = stringPreferencesKey("system_prompt")
+private val KEY_SERVER_URL        = stringPreferencesKey("server_url")
+private val KEY_SYSTEM_PROMPT     = stringPreferencesKey("system_prompt")
+private val KEY_USE_RUN_PREDICTOR = booleanPreferencesKey("use_run_predictor")
 
 class SettingsRepository(private val context: Context) {
 
@@ -29,13 +32,21 @@ class SettingsRepository(private val context: Context) {
                 ?: BuildConfig.SERVER_URL.takeIf { it.isNotBlank() }
                 ?: "https://wiggleton-server.tail22bb77.ts.net:11435",
             systemPrompt = prefs[KEY_SYSTEM_PROMPT] ?: DEFAULT_SYSTEM_PROMPT,
+            useRunPredictor = prefs[KEY_USE_RUN_PREDICTOR] ?: false,
         )
     }
 
     suspend fun save(settings: AgentSettings) {
         context.settingsDataStore.edit { prefs ->
-            prefs[KEY_SERVER_URL]    = settings.serverUrl
-            prefs[KEY_SYSTEM_PROMPT] = settings.systemPrompt
+            prefs[KEY_SERVER_URL]        = settings.serverUrl
+            prefs[KEY_SYSTEM_PROMPT]     = settings.systemPrompt
+            prefs[KEY_USE_RUN_PREDICTOR] = settings.useRunPredictor
+        }
+    }
+
+    suspend fun setUseRunPredictor(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_USE_RUN_PREDICTOR] = enabled
         }
     }
 }

@@ -2,18 +2,23 @@ package com.wiggletonabbey.wigglebot.ui
 
 import android.app.AlarmManager
 import android.app.Application
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
+import com.wiggletonabbey.wigglebot.notifications.NotificationHelper
 import com.wiggletonabbey.wigglebot.schedule.AlarmScheduler
 import com.wiggletonabbey.wigglebot.schedule.HealthConnectHelper
+import com.wiggletonabbey.wigglebot.schedule.WorkerOutcome
+import com.wiggletonabbey.wigglebot.schedule.WorkerOutcomeStore
 import com.wiggletonabbey.wigglebot.service.AgentSettings
 import com.wiggletonabbey.wigglebot.service.ChannelEvent
 import com.wiggletonabbey.wigglebot.workers.CommuteWorker
@@ -58,6 +63,19 @@ data class ChatUiState(
 )
 
 enum class ConnectionStatus { Unknown, Checking, Connected, Failed }
+
+data class ChannelDiagnostic(
+    val id: String,
+    val name: String,
+    val enabled: Boolean,
+)
+
+data class NotificationDiagnostics(
+    val notificationsEnabled: Boolean,
+    val channels: List<ChannelDiagnostic>,
+    val canScheduleExactAlarms: Boolean,
+    val workerOutcomes: Map<String, WorkerOutcome>,
+)
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -178,6 +196,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshBatteryOptStatus() {
         val pm = getApplication<Application>().getSystemService(PowerManager::class.java)
         _batteryOptExempt.value = pm.isIgnoringBatteryOptimizations(getApplication<Application>().packageName)
+    }
+
+    private val _notificationDiagnostics = MutableStateFlow<NotificationDiagnostics?>(null)
+    val notificationDiagnostics = _notificationDiagnostics.asStateFlow()
+
+    fun refreshNotificationDiagnostics() {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val nm = app.getSystemService(NotificationManager::class.java)
+
+            val channels = listOf(
+                NotificationHelper.CHANNEL_RUNNING  to "Running Weather",
+                NotificationHelper.CHANNEL_COMMUTE  to "Commute Updates",
+                NotificationHelper.CHANNEL_REMINDER to "Run Reminders",
+            ).map { (id, name) ->
+                val channel = nm.getNotificationChannel(id)
+                ChannelDiagnostic(
+                    id = id,
+                    name = name,
+                    enabled = channel != null && channel.importance != NotificationManager.IMPORTANCE_NONE,
+                )
+            }
+
+            val am = app.getSystemService(AlarmManager::class.java)
+            val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                am.canScheduleExactAlarms()
+            } else true
+
+            refreshBatteryOptStatus()
+
+            _notificationDiagnostics.value = NotificationDiagnostics(
+                notificationsEnabled = NotificationManagerCompat.from(app).areNotificationsEnabled(),
+                channels = channels,
+                canScheduleExactAlarms = canExact,
+                workerOutcomes = WorkerOutcomeStore.outcomes(app).first(),
+            )
+        }
+    }
+
+    fun setUseRunPredictor(enabled: Boolean) {
+        viewModelScope.launch { settingsRepo.setUseRunPredictor(enabled) }
     }
 
     fun checkSchedule() {

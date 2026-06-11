@@ -34,9 +34,114 @@ defmodule WigglebotServer.Tools.ServerTools do
     {:ok, "navigate_to:#{encoded}"}
   end
 
+  def execute("get_net_worth", _args, _location_fn) do
+    WigglebotServer.Finance.net_worth()
+  end
+
+  def execute("get_account_balance", args, _location_fn) do
+    case Map.get(args, "account", "") do
+      "" -> {:error, "account name is required"}
+      name -> WigglebotServer.Finance.account_balance(name)
+    end
+  end
+
+  def execute("get_spending_summary", args, _location_fn) do
+    days = Map.get(args, "days", "30") |> parse_int(30)
+    WigglebotServer.Finance.spending_summary(days)
+  end
+
+  def execute("get_last_finance_report", _args, _location_fn) do
+    case WigglebotServer.Reports.latest("finance_anomaly") do
+      [report | _] ->
+        {:ok, "#{report.title} (#{Date.to_iso8601(DateTime.to_date(report.inserted_at))}):\n#{report.body}"}
+
+      [] ->
+        {:ok, "No finance report has been generated yet."}
+    end
+  end
+
+  def execute("remember", args, _location_fn) do
+    case WigglebotServer.Memory.remember(Map.get(args, "note", "")) do
+      {:ok, _} -> {:ok, "Noted."}
+      {:error, _} -> {:error, "Could not save an empty note"}
+    end
+  end
+
+  def execute("recall", args, _location_fn) do
+    case WigglebotServer.Memory.recall(Map.get(args, "query")) do
+      [] ->
+        {:ok, "No matching notes in memory."}
+
+      notes ->
+        {:ok,
+         Enum.map_join(notes, "\n", fn n ->
+           "- [#{Calendar.strftime(n.inserted_at, "%Y-%m-%d")}] #{n.content}"
+         end)}
+    end
+  end
+
+  def execute("get_week_plan", _args, _location_fn) do
+    {:ok, WigglebotServer.Running.Coach.describe_plan()}
+  end
+
+  def execute("replan_week", _args, _location_fn) do
+    case WigglebotServer.Running.Coach.replan_current_week() do
+      {:ok, _} -> {:ok, WigglebotServer.Running.Coach.describe_plan()}
+    end
+  end
+
+  def execute("add_race_event", args, _location_fn) do
+    distance_m =
+      case Float.parse(to_string(Map.get(args, "distance_km", ""))) do
+        {km, _} -> km * 1000
+        :error -> nil
+      end
+
+    attrs = %{
+      name: Map.get(args, "name"),
+      date: parse_event_date(Map.get(args, "date")),
+      distance_m: distance_m,
+      goal: Map.get(args, "goal")
+    }
+
+    case WigglebotServer.Running.add_event(attrs) do
+      {:ok, event} ->
+        {:ok, "Saved: #{event.name} on #{event.date}. The coach will plan toward it."}
+
+      {:error, changeset} ->
+        {:error, "Could not save event: #{inspect(changeset.errors)}"}
+    end
+  end
+
+  def execute("list_race_events", _args, _location_fn) do
+    case WigglebotServer.Running.upcoming_events() do
+      [] ->
+        {:ok, "No upcoming races saved."}
+
+      events ->
+        {:ok,
+         Enum.map_join(events, "\n", fn e ->
+           days = Date.diff(e.date, Date.utc_today())
+
+           "- #{e.name}: #{e.date} (in #{days} days)" <>
+             if(e.distance_m, do: ", #{Float.round(e.distance_m / 1000, 1)} km", else: "") <>
+             if(e.goal, do: ", goal: #{e.goal}", else: "")
+         end)}
+    end
+  end
+
   def execute(name, _args, _location_fn) do
     {:error, "Unknown server tool: #{name}"}
   end
+
+  defp parse_event_date(s) when is_binary(s) do
+    case Date.from_iso8601(s) do
+      {:ok, d} -> d
+      _ -> nil
+    end
+  end
+
+  defp parse_event_date(_), do: nil
 
   # ── GO Train ─────────────────────────────────────────────────────────────────
 

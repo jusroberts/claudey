@@ -8,7 +8,47 @@
 import Config
 
 config :wigglebot_server,
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  ecto_repos: [WigglebotServer.Repo]
+
+config :wigglebot_server, WigglebotServer.Repo,
+  database: "data/wigglebot_#{config_env()}.db"
+
+config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
+
+# Cron jobs (server-initiated pushes, reports). Quantum crontab syntax,
+# evaluated in the timezone below so wall-clock times survive DST.
+config :wigglebot_server, WigglebotServer.Scheduler,
+  timezone: "America/Toronto",
+  jobs: [
+    # Sunday 18:30 — weekly spending-anomaly report
+    finance_anomaly_report: [
+      schedule: "30 18 * * 0",
+      task: {WigglebotServer.Finance.AnomalyReport, :run_weekly, []}
+    ],
+    # Daily 18:00 — wake the phone's run-reminder worker via FCM so the
+    # nudge doesn't depend on Android's alarm/Doze behavior. The on-device
+    # 6pm alarm stays as belt-and-braces; both post the same notification id.
+    run_reminder_wake: [
+      schedule: "0 18 * * *",
+      task: {WigglebotServer.Running, :wake_run_reminder, []}
+    ],
+    # Daily 05:30 — pull yesterday's Garmin activities (no-op if unconfigured)
+    garmin_sync: [
+      schedule: "30 5 * * *",
+      task: {WigglebotServer.Running.GarminClient, :sync_recent, []}
+    ],
+    # Sunday 19:00 — generate next week's training plan
+    coach_weekly_plan: [
+      schedule: "0 19 * * 0",
+      task: {WigglebotServer.Running.Coach, :plan_next_week, []}
+    ],
+    # Daily 06:30 — unified morning digest (weather + plan + events + finance)
+    morning_digest: [
+      schedule: "30 6 * * *",
+      task: {WigglebotServer.Digest, :send_morning_digest, []}
+    ]
+  ]
 
 # Configures the endpoint
 config :wigglebot_server, WigglebotServerWeb.Endpoint,

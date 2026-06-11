@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
@@ -53,6 +54,7 @@ fun ChatScreen(
     viewModel: MainViewModel,
     onNavigateToSettings: () -> Unit,
     onNavigateToTmux: () -> Unit = {},
+    onNavigateToCoach: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
@@ -85,6 +87,9 @@ fun ChatScreen(
                 actions = {
                     IconButton(onClick = { viewModel.clearHistory() }) {
                         Icon(Icons.Default.DeleteOutline, "Clear", tint = TextSecondary)
+                    }
+                    IconButton(onClick = onNavigateToCoach) {
+                        Icon(Icons.Default.DirectionsRun, "Coach", tint = TextSecondary)
                     }
                     IconButton(onClick = onNavigateToTmux) {
                         Icon(Icons.Default.Terminal, "Sessions", tint = TextSecondary)

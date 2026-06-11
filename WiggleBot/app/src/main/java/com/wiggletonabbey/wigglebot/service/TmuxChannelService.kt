@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -25,6 +26,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 private const val TAG = "TmuxChannelService"
+
+data class TmuxPromptOption(val key: String, val label: String)
+data class TmuxPrompt(val question: String?, val options: List<TmuxPromptOption>)
 
 class TmuxChannelService(
     private val serverUrl: String,
@@ -45,6 +49,11 @@ class TmuxChannelService(
 
     private val _connected = MutableStateFlow(false)
     val connected: StateFlow<Boolean> = _connected.asStateFlow()
+
+    // Set when the server detects an interactive prompt (e.g. a Claude Code
+    // permission menu) in the pane, so the UI can offer one-tap answers.
+    private val _prompt = MutableStateFlow<TmuxPrompt?>(null)
+    val prompt: StateFlow<TmuxPrompt?> = _prompt.asStateFlow()
 
     @Volatile private var ws: WebSocket? = null
     @Volatile private var joinRef: String? = null
@@ -68,21 +77,37 @@ class TmuxChannelService(
         ws?.close(1000, "done")
         ws = null
         _connected.value = false
+        _prompt.value = null
     }
 
     fun sendInput(text: String) {
-        val jRef = joinRef ?: return
         // tmux send-keys has arg-length limits; chunk long input to avoid silent truncation
         text.chunked(500).forEach { chunk ->
-            val msg = buildJsonObject {
-                put("join_ref", jRef)
-                put("ref", nextRef())
-                put("topic", topic)
-                put("event", "send_input")
-                put("payload", buildJsonObject { put("text", chunk) })
-            }
-            ws?.send(msg.toString())
+            push("send_input", buildJsonObject { put("text", chunk) })
         }
+    }
+
+    /** Named key (Enter, Escape, Up, Down, Tab, C-c, …) — see server whitelist. */
+    fun sendKey(key: String) {
+        push("send_key", buildJsonObject { put("key", key) })
+    }
+
+    /** One-tap prompt answer: server types the key and presses Enter. */
+    fun answerPrompt(key: String) {
+        _prompt.value = null
+        push("answer_prompt", buildJsonObject { put("key", key) })
+    }
+
+    private fun push(event: String, payload: kotlinx.serialization.json.JsonObject) {
+        val jRef = joinRef ?: return
+        val msg = buildJsonObject {
+            put("join_ref", jRef)
+            put("ref", nextRef())
+            put("topic", topic)
+            put("event", event)
+            put("payload", payload)
+        }
+        ws?.send(msg.toString())
     }
 
     private fun sendJoin(webSocket: WebSocket) {
@@ -151,9 +176,26 @@ class TmuxChannelService(
                     val content = payload["content"]?.jsonPrimitive?.content ?: return
                     _output.value = content
                 }
+                "prompt_detected" -> {
+                    val options = payload["options"]?.jsonArray?.mapNotNull { el ->
+                        val opt = el.jsonObject
+                        val key = opt["key"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                        val label = opt["label"]?.jsonPrimitive?.content ?: key
+                        TmuxPromptOption(key, label)
+                    } ?: emptyList()
+                    if (options.isNotEmpty()) {
+                        val question = payload["question"]?.jsonPrimitive
+                            ?.takeIf { it !is JsonNull }?.content
+                        _prompt.value = TmuxPrompt(question, options)
+                    }
+                }
+                "prompt_cleared" -> {
+                    _prompt.value = null
+                }
                 "session_ended" -> {
                     Log.d(TAG, "Session ended")
                     _connected.value = false
+                    _prompt.value = null
                 }
             }
         }

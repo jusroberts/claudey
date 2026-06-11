@@ -42,7 +42,12 @@ defmodule WigglebotServer.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
-      {:req, "~> 0.5"}
+      {:req, "~> 0.5"},
+      {:ecto_sql, "~> 3.11"},
+      {:ecto_sqlite3, "~> 0.16"},
+      {:quantum, "~> 3.5"},
+      {:tzdata, "~> 1.1"},
+      {:goth, "~> 1.4"}
     ]
   end
 
@@ -54,7 +59,9 @@ defmodule WigglebotServer.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get"]
+      setup: ["deps.get", "ecto.setup"],
+      "ecto.setup": ["ecto.create", "ecto.migrate"],
+      "ecto.reset": ["ecto.drop", "ecto.setup"]
     ]
   end
 end
