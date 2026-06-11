@@ -34,6 +34,32 @@ defmodule WigglebotServer.Tools.ServerTools do
     {:ok, "navigate_to:#{encoded}"}
   end
 
+  def execute("get_net_worth", _args, _location_fn) do
+    WigglebotServer.Finance.net_worth()
+  end
+
+  def execute("get_account_balance", args, _location_fn) do
+    case Map.get(args, "account", "") do
+      "" -> {:error, "account name is required"}
+      name -> WigglebotServer.Finance.account_balance(name)
+    end
+  end
+
+  def execute("get_spending_summary", args, _location_fn) do
+    days = Map.get(args, "days", "30") |> parse_int(30)
+    WigglebotServer.Finance.spending_summary(days)
+  end
+
+  def execute("get_last_finance_report", _args, _location_fn) do
+    case WigglebotServer.Reports.latest("finance_anomaly") do
+      [report | _] ->
+        {:ok, "#{report.title} (#{Date.to_iso8601(DateTime.to_date(report.inserted_at))}):\n#{report.body}"}
+
+      [] ->
+        {:ok, "No finance report has been generated yet."}
+    end
+  end
+
   def execute(name, _args, _location_fn) do
     {:error, "Unknown server tool: #{name}"}
   end

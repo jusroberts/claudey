@@ -20,7 +20,13 @@ config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
 # evaluated in the timezone below so wall-clock times survive DST.
 config :wigglebot_server, WigglebotServer.Scheduler,
   timezone: "America/Toronto",
-  jobs: []
+  jobs: [
+    # Sunday 18:30 — weekly spending-anomaly report
+    finance_anomaly_report: [
+      schedule: "30 18 * * 0",
+      task: {WigglebotServer.Finance.AnomalyReport, :run_weekly, []}
+    ]
+  ]
 
 # Configures the endpoint
 config :wigglebot_server, WigglebotServerWeb.Endpoint,

@@ -126,3 +126,10 @@ end
 if db = System.get_env("DATABASE_PATH") do
   config :wigglebot_server, WigglebotServer.Repo, database: db
 end
+
+if url = System.get_env("ACTUAL_API_URL") do
+  config :wigglebot_server, :actual_api,
+    url: url,
+    api_key: System.get_env("ACTUAL_API_KEY") || "",
+    sync_id: System.get_env("ACTUAL_SYNC_ID") || ""
+end
