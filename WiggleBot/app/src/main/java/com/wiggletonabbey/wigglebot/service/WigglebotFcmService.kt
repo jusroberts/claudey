@@ -9,6 +9,7 @@ import com.wiggletonabbey.wigglebot.notifications.NotificationHelper
 import com.wiggletonabbey.wigglebot.workers.CommuteWorker
 import com.wiggletonabbey.wigglebot.workers.RunReminderWorker
 import com.wiggletonabbey.wigglebot.workers.RunningWeatherWorker
+import com.wiggletonabbey.wigglebot.workers.RunsSyncWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,6 +59,7 @@ class WigglebotFcmService : FirebaseMessagingService() {
             "run_reminder" -> OneTimeWorkRequestBuilder<RunReminderWorker>()
             "run_brief" -> OneTimeWorkRequestBuilder<RunningWeatherWorker>()
             "commute" -> OneTimeWorkRequestBuilder<CommuteWorker>()
+            "runs_sync" -> OneTimeWorkRequestBuilder<RunsSyncWorker>()
             else -> {
                 Log.w(TAG, "Unknown wake worker: $worker")
                 return

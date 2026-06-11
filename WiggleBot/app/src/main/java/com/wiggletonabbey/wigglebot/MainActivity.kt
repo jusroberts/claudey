@@ -17,7 +17,11 @@ import androidx.compose.runtime.Composable
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ElevationGainedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -25,9 +29,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.wiggletonabbey.wigglebot.notifications.NotificationHelper
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.wiggletonabbey.wigglebot.schedule.AlarmScheduler
 import com.wiggletonabbey.wigglebot.service.PushRegistrar
+import com.wiggletonabbey.wigglebot.workers.RunsSyncWorker
 import com.wiggletonabbey.wigglebot.ui.ChatScreen
+import com.wiggletonabbey.wigglebot.ui.CoachScreen
+import com.wiggletonabbey.wigglebot.ui.CoachViewModel
 import com.wiggletonabbey.wigglebot.ui.MainViewModel
 import com.wiggletonabbey.wigglebot.ui.SettingsScreen
 import com.wiggletonabbey.wigglebot.ui.TmuxSessionScreen
@@ -40,9 +50,14 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
     private val tmuxViewModel: TmuxViewModel by viewModels()
+    private val coachViewModel: CoachViewModel by viewModels()
 
     private val healthPermissions = setOf(
-        HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        HealthPermission.getReadPermission(DistanceRecord::class),
+        HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getReadPermission(ElevationGainedRecord::class),
+        HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
     )
 
     private val requestHealthPermissions =
@@ -68,6 +83,7 @@ class MainActivity : ComponentActivity() {
 
         NotificationHelper.createChannels(this)
         AlarmScheduler.schedule(this)
+        scheduleRunsSync()
         requestRuntimePermissions()
         requestBatteryOptExemption()
 
@@ -82,7 +98,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             WiggleBotTheme {
-                AppNavigation(viewModel, tmuxViewModel)
+                AppNavigation(viewModel, tmuxViewModel, coachViewModel)
             }
         }
     }
@@ -105,6 +121,15 @@ class MainActivity : ComponentActivity() {
         } else {
             requestHealthConnectPermissions()
         }
+    }
+
+    private fun scheduleRunsSync() {
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "runs_sync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<RunsSyncWorker>(12, java.util.concurrent.TimeUnit.HOURS)
+                .build(),
+        )
     }
 
     private fun requestBatteryOptExemption() {
@@ -142,13 +167,18 @@ class MainActivity : ComponentActivity() {
 private object Routes {
     const val CHAT = "chat"
     const val SETTINGS = "settings"
+    const val COACH = "coach"
     const val TMUX_SESSIONS = "tmux"
     const val TMUX_SESSION = "tmux/{name}"
     fun tmuxSession(name: String) = "tmux/$name"
 }
 
 @Composable
-private fun AppNavigation(viewModel: MainViewModel, tmuxViewModel: TmuxViewModel) {
+private fun AppNavigation(
+    viewModel: MainViewModel,
+    tmuxViewModel: TmuxViewModel,
+    coachViewModel: CoachViewModel,
+) {
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = Routes.CHAT) {
@@ -157,6 +187,13 @@ private fun AppNavigation(viewModel: MainViewModel, tmuxViewModel: TmuxViewModel
                 viewModel = viewModel,
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToTmux = { navController.navigate(Routes.TMUX_SESSIONS) },
+                onNavigateToCoach = { navController.navigate(Routes.COACH) },
+            )
+        }
+        composable(Routes.COACH) {
+            CoachScreen(
+                viewModel = coachViewModel,
+                onNavigateBack = { navController.popBackStack() },
             )
         }
         composable(Routes.SETTINGS) {

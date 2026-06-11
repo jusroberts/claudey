@@ -3,7 +3,12 @@ package com.wiggletonabbey.wigglebot.schedule
 import android.content.Context
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ElevationGainedRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Instant
@@ -20,6 +25,19 @@ private val RUNNING_TYPES = setOf(
 
 // Minimum probability to call today a likely run day.
 private const val RUN_PROBABILITY_THRESHOLD = 0.35
+
+/** One run session with metrics, ready to upload to the server. */
+data class RunForSync(
+    val externalId: String,
+    val startedAt: Instant,
+    val durationS: Long,
+    val distanceM: Double?,
+    val avgHr: Long?,
+    val maxHr: Long?,
+    val elevationGainM: Double?,
+    val calories: Double?,
+    val title: String?,
+)
 
 class HealthConnectHelper(private val context: Context) {
 
@@ -122,6 +140,58 @@ class HealthConnectHelper(private val context: Context) {
 
         response.records.any { it.exerciseType in RUNNING_TYPES }
     }.getOrDefault(false)
+
+    /**
+     * Reads running sessions from the last [days] days with per-session
+     * aggregates (distance, HR, elevation, calories) for upload to the
+     * server's run store. Metric reads degrade to null individually when
+     * their Health Connect permissions aren't granted.
+     */
+    suspend fun recentRunsForSync(days: Long = 14): List<RunForSync> = runCatching {
+        if (!isAvailable() || !hasPermission()) return@runCatching emptyList()
+
+        val end = Instant.now()
+        val start = end.minus(days, ChronoUnit.DAYS)
+
+        val sessions = client.readRecords(
+            ReadRecordsRequest(
+                recordType = ExerciseSessionRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(start, end),
+            )
+        ).records.filter { it.exerciseType in RUNNING_TYPES }
+
+        sessions.map { session ->
+            val metrics = runCatching {
+                client.aggregate(
+                    AggregateRequest(
+                        metrics = setOf(
+                            DistanceRecord.DISTANCE_TOTAL,
+                            HeartRateRecord.BPM_AVG,
+                            HeartRateRecord.BPM_MAX,
+                            ElevationGainedRecord.ELEVATION_GAINED_TOTAL,
+                            TotalCaloriesBurnedRecord.ENERGY_TOTAL,
+                        ),
+                        timeRangeFilter = TimeRangeFilter.between(session.startTime, session.endTime),
+                    )
+                )
+            }.getOrNull()
+
+            RunForSync(
+                externalId = session.metadata.id,
+                startedAt = session.startTime,
+                durationS = ChronoUnit.SECONDS.between(session.startTime, session.endTime),
+                distanceM = metrics?.get(DistanceRecord.DISTANCE_TOTAL)?.inMeters,
+                avgHr = metrics?.get(HeartRateRecord.BPM_AVG),
+                maxHr = metrics?.get(HeartRateRecord.BPM_MAX),
+                elevationGainM = metrics?.get(ElevationGainedRecord.ELEVATION_GAINED_TOTAL)?.inMeters,
+                calories = metrics?.get(TotalCaloriesBurnedRecord.ENERGY_TOTAL)?.inKilocalories,
+                title = session.title,
+            )
+        }
+    }.getOrElse { e ->
+        Log.e(TAG, "recentRunsForSync failed", e)
+        emptyList()
+    }
 
     /** Returns a human-readable debug summary of recent running data and today's inference. */
     suspend fun debugSummary(): String = runCatching {
