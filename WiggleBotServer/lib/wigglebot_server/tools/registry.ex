@@ -277,6 +277,54 @@ defmodule WigglebotServer.Tools.Registry do
       side: :server,
       type: "function",
       function: %{
+        name: "get_week_plan",
+        description:
+          "Get the running coach's training plan for the current and next week, with today marked.",
+        parameters: %{type: "object", properties: %{}}
+      }
+    },
+    %{
+      side: :server,
+      type: "function",
+      function: %{
+        name: "replan_week",
+        description:
+          "Regenerate the running coach's training plan for the current week (e.g. after a missed workout or new race).",
+        parameters: %{type: "object", properties: %{}}
+      }
+    },
+    %{
+      side: :server,
+      type: "function",
+      function: %{
+        name: "add_race_event",
+        description:
+          "Save an upcoming race or running event so the coach can plan toward it.",
+        parameters: %{
+          type: "object",
+          properties: %{
+            name: %{type: "string", description: "Event name, e.g. 'Toronto Half Marathon'"},
+            date: %{type: "string", description: "Event date, YYYY-MM-DD"},
+            distance_km: %{type: "string", description: "Optional distance in km"},
+            goal: %{type: "string", description: "Optional goal, e.g. 'sub 1:50'"}
+          },
+          required: ["name", "date"]
+        }
+      }
+    },
+    %{
+      side: :server,
+      type: "function",
+      function: %{
+        name: "list_race_events",
+        description: "List upcoming races/running events the coach knows about.",
+        parameters: %{type: "object", properties: %{}}
+      }
+    },
+    %{
+      side: :server,
+      type: "function",
+      function: %{
         name: "get_go_train_schedule",
         description:
           "Get the next GO Train departures on the Milton line. Use when the user asks 'when is the next train to Toronto', 'next train to Milton', or similar.",

@@ -60,9 +60,68 @@ defmodule WigglebotServer.Tools.ServerTools do
     end
   end
 
+  def execute("get_week_plan", _args, _location_fn) do
+    {:ok, WigglebotServer.Running.Coach.describe_plan()}
+  end
+
+  def execute("replan_week", _args, _location_fn) do
+    case WigglebotServer.Running.Coach.replan_current_week() do
+      {:ok, _} -> {:ok, WigglebotServer.Running.Coach.describe_plan()}
+    end
+  end
+
+  def execute("add_race_event", args, _location_fn) do
+    distance_m =
+      case Float.parse(to_string(Map.get(args, "distance_km", ""))) do
+        {km, _} -> km * 1000
+        :error -> nil
+      end
+
+    attrs = %{
+      name: Map.get(args, "name"),
+      date: parse_event_date(Map.get(args, "date")),
+      distance_m: distance_m,
+      goal: Map.get(args, "goal")
+    }
+
+    case WigglebotServer.Running.add_event(attrs) do
+      {:ok, event} ->
+        {:ok, "Saved: #{event.name} on #{event.date}. The coach will plan toward it."}
+
+      {:error, changeset} ->
+        {:error, "Could not save event: #{inspect(changeset.errors)}"}
+    end
+  end
+
+  def execute("list_race_events", _args, _location_fn) do
+    case WigglebotServer.Running.upcoming_events() do
+      [] ->
+        {:ok, "No upcoming races saved."}
+
+      events ->
+        {:ok,
+         Enum.map_join(events, "\n", fn e ->
+           days = Date.diff(e.date, Date.utc_today())
+
+           "- #{e.name}: #{e.date} (in #{days} days)" <>
+             if(e.distance_m, do: ", #{Float.round(e.distance_m / 1000, 1)} km", else: "") <>
+             if(e.goal, do: ", goal: #{e.goal}", else: "")
+         end)}
+    end
+  end
+
   def execute(name, _args, _location_fn) do
     {:error, "Unknown server tool: #{name}"}
   end
+
+  defp parse_event_date(s) when is_binary(s) do
+    case Date.from_iso8601(s) do
+      {:ok, d} -> d
+      _ -> nil
+    end
+  end
+
+  defp parse_event_date(_), do: nil
 
   # ── GO Train ─────────────────────────────────────────────────────────────────
 

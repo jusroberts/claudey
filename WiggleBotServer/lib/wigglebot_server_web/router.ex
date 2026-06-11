@@ -22,6 +22,11 @@ defmodule WigglebotServerWeb.Router do
     get "/fs/dirs", TmuxController, :dirs
     post "/devices", DeviceController, :register
     post "/push/test", DeviceController, :test_push
+    post "/runs/sync", RunController, :sync
+    get "/coach/week", RunController, :coach_week
+    post "/coach/replan", RunController, :replan
+    post "/events", RunController, :create_event
+    delete "/events/:id", RunController, :delete_event
     post "/build/trigger", BuildController, :trigger
     get "/build/status", BuildController, :status
     get "/build/list", BuildController, :list

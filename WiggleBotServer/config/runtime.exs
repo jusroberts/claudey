@@ -133,3 +133,9 @@ if url = System.get_env("ACTUAL_API_URL") do
     api_key: System.get_env("ACTUAL_API_KEY") || "",
     sync_id: System.get_env("ACTUAL_SYNC_ID") || ""
 end
+
+if token = System.get_env("GARMIN_ACCESS_TOKEN") do
+  config :wigglebot_server,
+    garmin_access_token: token,
+    garmin_api_url: System.get_env("GARMIN_API_URL") || "https://apis.garmin.com"
+end
