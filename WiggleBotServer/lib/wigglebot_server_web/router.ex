@@ -18,6 +18,8 @@ defmodule WigglebotServerWeb.Router do
     get "/brief/commute", BriefController, :commute
     post "/park/book", ParkController, :book
     get "/tmux/sessions", TmuxController, :sessions
+    post "/tmux/sessions", TmuxController, :create
+    get "/fs/dirs", TmuxController, :dirs
     post "/devices", DeviceController, :register
     post "/push/test", DeviceController, :test_push
     post "/build/trigger", BuildController, :trigger
