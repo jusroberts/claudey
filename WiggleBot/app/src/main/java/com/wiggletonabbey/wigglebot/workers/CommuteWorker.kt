@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.wiggletonabbey.wigglebot.notifications.NotificationHelper
 import com.wiggletonabbey.wigglebot.schedule.HealthConnectHelper
+import com.wiggletonabbey.wigglebot.schedule.WorkerOutcomeStore
 import com.wiggletonabbey.wigglebot.service.SettingsRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
@@ -44,31 +45,46 @@ class CommuteWorker(context: Context, params: WorkerParameters) :
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun doWork(): Result {
+        // Always Result.success() so WorkManager doesn't retry-spam; the outcome
+        // (including errors) is recorded for the Settings diagnostics panel.
+        val outcome = runCatching { postBrief() }.getOrElse { e ->
+            Log.e(TAG, "Commute brief failed", e)
+            "error: ${e.message?.take(120) ?: e.javaClass.simpleName}"
+        }
+        Log.d(TAG, "Outcome: $outcome")
+        runCatching {
+            WorkerOutcomeStore.record(applicationContext, WorkerOutcomeStore.KEY_COMMUTE, outcome)
+        }.onFailure { Log.e(TAG, "Failed to record outcome", it) }
+        return Result.success()
+    }
+
+    /** Runs the brief logic and returns the outcome string to record. */
+    private suspend fun postBrief(): String {
         val isAfternoon = inputData.getBoolean("is_afternoon", false)
         val today = LocalDate.now().dayOfWeek
 
         if (isAfternoon) {
             if (today !in WEEKDAYS) {
                 Log.d(TAG, "Not a weekday — skipping afternoon commute")
-                return Result.success()
+                return "skipped: not a weekday"
             }
         } else {
             if (today !in COMMUTE_DAYS) {
                 Log.d(TAG, "Not a commute day — skipping")
-                return Result.success()
+                return "skipped: not a commute day"
             }
         }
 
         val loc = lastKnownLocation() ?: run {
             Log.w(TAG, "No location — skipping")
-            return Result.success()
+            return "error: no location available"
         }
 
         if (isAfternoon) {
             val (lat, lon) = loc
             if (lat !in TORONTO_LAT_MIN..TORONTO_LAT_MAX || lon !in TORONTO_LON_MIN..TORONTO_LON_MAX) {
                 Log.d(TAG, "Not in Toronto ($lat, $lon) — skipping afternoon commute")
-                return Result.success()
+                return "skipped: not in Toronto"
             }
         }
 
@@ -81,20 +97,30 @@ class CommuteWorker(context: Context, params: WorkerParameters) :
         val url = "$serverUrl/api/brief/commute" +
             "?lat=${loc.first}&lon=${loc.second}&is_run_day=$isRunDay&direction=$direction"
 
-        return runCatching {
+        val fetched = runCatching {
             val body = http.newCall(Request.Builder().url(url).build()).execute()
                 .use { it.body?.string() ?: "" }
 
             val obj = json.parseToJsonElement(body).jsonObject
-            val title = obj["title"]?.jsonPrimitive?.content ?: return Result.success()
+            val title = obj["title"]?.jsonPrimitive?.content ?: error("server response missing title")
             val briefBody = obj["body"]?.jsonPrimitive?.content ?: ""
-
-            NotificationHelper.postCommuteBrief(applicationContext, title, briefBody)
-            Log.d(TAG, "Posted: $title")
-            Result.success()
+            title to briefBody
         }.getOrElse { e ->
-            Log.e(TAG, "Failed to fetch commute brief", e)
-            Result.success()
+            Log.e(TAG, "Failed to fetch commute brief — posting default", e)
+            null
+        }
+
+        return if (fetched != null) {
+            NotificationHelper.postCommuteBrief(applicationContext, fetched.first, fetched.second)
+            Log.d(TAG, "Posted: ${fetched.first}")
+            "fired"
+        } else {
+            NotificationHelper.postCommuteBrief(
+                applicationContext,
+                "🚆 Commute brief",
+                "Couldn't reach the server for commute conditions — check GO transit before leaving.",
+            )
+            "fired (default content — server unreachable)"
         }
     }
 

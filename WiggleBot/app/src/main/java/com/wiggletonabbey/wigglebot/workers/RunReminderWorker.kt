@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.wiggletonabbey.wigglebot.notifications.NotificationHelper
 import com.wiggletonabbey.wigglebot.schedule.HealthConnectHelper
+import com.wiggletonabbey.wigglebot.schedule.WorkerOutcomeStore
 import com.wiggletonabbey.wigglebot.service.SettingsRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
@@ -32,33 +33,52 @@ class RunReminderWorker(context: Context, params: WorkerParameters) :
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun doWork(): Result {
-        val isRunDay = healthConnect.isLikelyRunDay()
-        val hasRun   = healthConnect.hasRunToday()
-        Log.d(TAG, "isLikelyRunDay=$isRunDay hasRunToday=$hasRun")
-
-        if (!isRunDay) {
-            Log.d(TAG, "Not a likely run day — skipping reminder")
-            return Result.success()
+        // Always Result.success() so WorkManager doesn't retry-spam; the outcome
+        // (including errors) is recorded for the Settings diagnostics panel.
+        val outcome = runCatching { postReminder() }.getOrElse { e ->
+            Log.e(TAG, "Run reminder failed", e)
+            "error: ${e.message?.take(120) ?: e.javaClass.simpleName}"
         }
+        Log.d(TAG, "Outcome: $outcome")
+        runCatching {
+            WorkerOutcomeStore.record(applicationContext, WorkerOutcomeStore.KEY_RUN_REMINDER, outcome)
+        }.onFailure { Log.e(TAG, "Failed to record outcome", it) }
+        return Result.success()
+    }
+
+    /** Runs the reminder logic and returns the outcome string to record. */
+    private suspend fun postReminder(): String {
+        val settings = settingsRepo.settings.first()
+        val hasRun = healthConnect.hasRunToday()
+        Log.d(TAG, "hasRunToday=$hasRun useRunPredictor=${settings.useRunPredictor}")
 
         if (hasRun) {
             Log.d(TAG, "Already ran today — no reminder needed")
-            return Result.success()
+            return "skipped: already ran today"
+        }
+
+        // The predictor gate is opt-in: only suppress the nudge when the user
+        // explicitly enabled "Only remind on likely run days" in Settings.
+        if (settings.useRunPredictor && !healthConnect.isLikelyRunDay()) {
+            Log.d(TAG, "Predictor says rest day — suppressing reminder")
+            return "suppressed: predictor says rest day"
         }
 
         // Fetch weather to personalise the nudge.
         val loc = lastKnownLocation()
+        var defaultReason: String? = null
         val (title, body) = if (loc != null) {
-            val serverUrl = settingsRepo.settings.first().serverUrl.trimEnd('/')
+            val serverUrl = settings.serverUrl.trimEnd('/')
             val url = "$serverUrl/api/brief/run?lat=${loc.first}&lon=${loc.second}"
-            fetchWeatherNudge(url) ?: defaultNudge()
+            fetchWeatherNudge(url)
+                ?: defaultNudge().also { defaultReason = "server unreachable" }
         } else {
-            defaultNudge()
+            defaultNudge().also { defaultReason = "no location" }
         }
 
         NotificationHelper.postRunReminder(applicationContext, title, body)
-        Log.d(TAG, "Reminder posted")
-        return Result.success()
+        Log.d(TAG, "Reminder posted (defaultReason=$defaultReason)")
+        return defaultReason?.let { "fired (default content — $it)" } ?: "fired"
     }
 
     private fun fetchWeatherNudge(url: String): Pair<String, String>? = runCatching {
