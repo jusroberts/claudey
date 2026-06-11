@@ -277,6 +277,37 @@ defmodule WigglebotServer.Tools.Registry do
       side: :server,
       type: "function",
       function: %{
+        name: "remember",
+        description:
+          "Save a long-lived note to memory, e.g. preferences, facts about the user, things to keep in mind.",
+        parameters: %{
+          type: "object",
+          properties: %{
+            note: %{type: "string", description: "The thing to remember"}
+          },
+          required: ["note"]
+        }
+      }
+    },
+    %{
+      side: :server,
+      type: "function",
+      function: %{
+        name: "recall",
+        description:
+          "Search saved memory notes. Omit the query to get the most recent notes.",
+        parameters: %{
+          type: "object",
+          properties: %{
+            query: %{type: "string", description: "Optional substring to search for"}
+          }
+        }
+      }
+    },
+    %{
+      side: :server,
+      type: "function",
+      function: %{
         name: "get_week_plan",
         description:
           "Get the running coach's training plan for the current and next week, with today marked.",

@@ -60,6 +60,26 @@ defmodule WigglebotServer.Tools.ServerTools do
     end
   end
 
+  def execute("remember", args, _location_fn) do
+    case WigglebotServer.Memory.remember(Map.get(args, "note", "")) do
+      {:ok, _} -> {:ok, "Noted."}
+      {:error, _} -> {:error, "Could not save an empty note"}
+    end
+  end
+
+  def execute("recall", args, _location_fn) do
+    case WigglebotServer.Memory.recall(Map.get(args, "query")) do
+      [] ->
+        {:ok, "No matching notes in memory."}
+
+      notes ->
+        {:ok,
+         Enum.map_join(notes, "\n", fn n ->
+           "- [#{Calendar.strftime(n.inserted_at, "%Y-%m-%d")}] #{n.content}"
+         end)}
+    end
+  end
+
   def execute("get_week_plan", _args, _location_fn) do
     {:ok, WigglebotServer.Running.Coach.describe_plan()}
   end

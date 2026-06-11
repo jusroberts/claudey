@@ -24,8 +24,12 @@ defmodule WigglebotServerWeb.AgentChannel do
   def handle_in("user_message", %{"text" => text} = payload, socket) do
     location =
       case payload do
-        %{"lat" => lat, "lon" => lon} when is_number(lat) and is_number(lon) -> {lat, lon}
-        _ -> nil
+        %{"lat" => lat, "lon" => lon} when is_number(lat) and is_number(lon) ->
+          WigglebotServer.LastLocation.put(lat, lon)
+          {lat, lon}
+
+        _ ->
+          nil
       end
 
     AgentSession.send_message(socket.assigns.client_id, text, self(), location)

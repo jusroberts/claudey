@@ -42,6 +42,11 @@ config :wigglebot_server, WigglebotServer.Scheduler,
     coach_weekly_plan: [
       schedule: "0 19 * * 0",
       task: {WigglebotServer.Running.Coach, :plan_next_week, []}
+    ],
+    # Daily 06:30 — unified morning digest (weather + plan + events + finance)
+    morning_digest: [
+      schedule: "30 6 * * *",
+      task: {WigglebotServer.Digest, :send_morning_digest, []}
     ]
   ]
 
