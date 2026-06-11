@@ -30,6 +30,7 @@ fun TmuxSessionScreen(
 ) {
     val output by viewModel.output.collectAsState()
     val connected by viewModel.connected.collectAsState()
+    val prompt by viewModel.prompt.collectAsState()
     var inputText by remember { mutableStateOf("") }
 
     val verticalScroll = rememberScrollState()
@@ -48,6 +49,7 @@ fun TmuxSessionScreen(
     fun send() {
         if (inputText.isNotBlank()) {
             viewModel.sendInput(inputText)
+            viewModel.sendKey("Enter")
             inputText = ""
         }
     }
@@ -78,59 +80,121 @@ fun TmuxSessionScreen(
         },
         bottomBar = {
             Surface(color = Background, tonalElevation = 0.dp) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    OutlinedTextField(
-                        value = inputText,
-                        onValueChange = { inputText = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Send input…", color = TextSecondary, fontSize = 13.sp) },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = { send() }),
-                        maxLines = 8,
-                        textStyle = LocalTextStyle.current.copy(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 13.sp,
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary,
-                            focusedBorderColor = Amber,
-                            unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
-                            cursorColor = Amber,
-                            focusedContainerColor = Surface,
-                            unfocusedContainerColor = Surface,
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                    )
-                    // Enter shortcut (for confirming Claude prompts)
-                    OutlinedButton(
-                        onClick = { viewModel.sendInput("\r") },
-                        contentPadding = PaddingValues(horizontal = 10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(TextSecondary.copy(alpha = 0.3f))
-                        ),
-                        modifier = Modifier.height(56.dp),
-                    ) {
-                        Text("↵", fontSize = 18.sp)
+                    // One-tap answers when the server detects an interactive
+                    // prompt (e.g. a Claude Code permission menu).
+                    prompt?.let { p ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Surface, RoundedCornerShape(12.dp))
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            p.question?.let { q ->
+                                Text(
+                                    q,
+                                    color = Amber,
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                            p.options.forEach { option ->
+                                OutlinedButton(
+                                    onClick = { viewModel.answerPrompt(option.key) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                                        brush = androidx.compose.ui.graphics.SolidColor(Amber.copy(alpha = 0.5f))
+                                    ),
+                                ) {
+                                    Text(
+                                        "${option.key}. ${option.label}",
+                                        fontSize = 13.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 2,
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
                     }
-                    FilledIconButton(
-                        onClick = { send() },
-                        enabled = inputText.isNotBlank(),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Amber,
-                            contentColor = androidx.compose.ui.graphics.Color(0xFF1A1200),
-                            disabledContainerColor = AmberDim,
-                        ),
+
+                    // Quick keys for TUI navigation
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, "Send")
+                        listOf(
+                            "Esc" to "Escape",
+                            "Tab" to "Tab",
+                            "↑" to "Up",
+                            "↓" to "Down",
+                            "↵" to "Enter",
+                            "^C" to "C-c",
+                        ).forEach { (label, key) ->
+                            OutlinedButton(
+                                onClick = { viewModel.sendKey(key) },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                    brush = androidx.compose.ui.graphics.SolidColor(TextSecondary.copy(alpha = 0.3f))
+                                ),
+                            ) {
+                                Text(label, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = inputText,
+                            onValueChange = { inputText = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Send input…", color = TextSecondary, fontSize = 13.sp) },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(onSend = { send() }),
+                            maxLines = 8,
+                            textStyle = LocalTextStyle.current.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 13.sp,
+                            ),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary,
+                                focusedBorderColor = Amber,
+                                unfocusedBorderColor = TextSecondary.copy(alpha = 0.3f),
+                                cursorColor = Amber,
+                                focusedContainerColor = Surface,
+                                unfocusedContainerColor = Surface,
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                        )
+                        FilledIconButton(
+                            onClick = { send() },
+                            enabled = inputText.isNotBlank(),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Amber,
+                                contentColor = androidx.compose.ui.graphics.Color(0xFF1A1200),
+                                disabledContainerColor = AmberDim,
+                            ),
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, "Send")
+                        }
                     }
                 }
             }
