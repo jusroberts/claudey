@@ -25,6 +25,13 @@ config :wigglebot_server, WigglebotServer.Scheduler,
     finance_anomaly_report: [
       schedule: "30 18 * * 0",
       task: {WigglebotServer.Finance.AnomalyReport, :run_weekly, []}
+    ],
+    # Daily 18:00 — wake the phone's run-reminder worker via FCM so the
+    # nudge doesn't depend on Android's alarm/Doze behavior. The on-device
+    # 6pm alarm stays as belt-and-braces; both post the same notification id.
+    run_reminder_wake: [
+      schedule: "0 18 * * *",
+      task: {WigglebotServer.Push, :wake, ["run_reminder"]}
     ]
   ]
 

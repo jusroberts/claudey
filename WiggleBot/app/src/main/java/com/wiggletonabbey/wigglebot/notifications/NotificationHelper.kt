@@ -14,11 +14,16 @@ object NotificationHelper {
     const val CHANNEL_RUNNING = "wigglebot_running"
     const val CHANNEL_COMMUTE = "wigglebot_commute"
     const val CHANNEL_REMINDER = "wigglebot_reminder"
+    const val CHANNEL_FINANCE = "wigglebot_finance"
 
-    private const val ID_RUNNING  = 1001
-    private const val ID_COMMUTE  = 1002
-    private const val ID_REMINDER = 1003
-    private const val ID_PARK     = 1004
+    private const val ID_RUNNING     = 1001
+    private const val ID_COMMUTE     = 1002
+    private const val ID_REMINDER    = 1003
+    private const val ID_PARK        = 1004
+    private const val ID_SERVER_PUSH = 1005
+
+    private val KNOWN_CHANNELS =
+        setOf(CHANNEL_RUNNING, CHANNEL_COMMUTE, CHANNEL_REMINDER, CHANNEL_FINANCE)
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -39,8 +44,19 @@ object NotificationHelper {
                         description = "Evening nudge when you haven't run yet"
                         lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                     },
+                NotificationChannel(CHANNEL_FINANCE, "Finance Reports", NotificationManager.IMPORTANCE_DEFAULT)
+                    .apply {
+                        description = "Weekly spending-anomaly reports from the server"
+                        lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+                    },
             )
         )
+    }
+
+    /** Posts a server-initiated push to the requested channel (fallback: reminders). */
+    fun postServerPush(context: Context, channelId: String?, title: String, body: String) {
+        val channel = if (channelId in KNOWN_CHANNELS) channelId!! else CHANNEL_REMINDER
+        post(context, channel, ID_SERVER_PUSH, title, body)
     }
 
     fun postRunBrief(

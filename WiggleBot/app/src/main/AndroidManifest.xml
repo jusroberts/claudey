@@ -114,6 +114,15 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <!-- FCM push: finance reports + server-driven reminder wakes -->
+        <service
+            android:name=".service.WigglebotFcmService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".notifications.ParkBookingReceiver"
             android:exported="false">

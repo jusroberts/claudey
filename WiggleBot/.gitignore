@@ -13,3 +13,6 @@ captures/
 
 # JVM heap dumps
 *.hprof
+
+# Firebase config (contains API identifiers, per-device setup)
+app/google-services.json

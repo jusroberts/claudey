@@ -26,6 +26,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.wiggletonabbey.wigglebot.notifications.NotificationHelper
 import com.wiggletonabbey.wigglebot.schedule.AlarmScheduler
+import com.wiggletonabbey.wigglebot.service.PushRegistrar
 import com.wiggletonabbey.wigglebot.ui.ChatScreen
 import com.wiggletonabbey.wigglebot.ui.MainViewModel
 import com.wiggletonabbey.wigglebot.ui.SettingsScreen
@@ -72,6 +73,11 @@ class MainActivity : ComponentActivity() {
 
         val keyPreview = BuildConfig.GOOGLE_MAPS_API_KEY.take(4).ifEmpty { "(empty)" }
         Log.d("WiggleBot", "GOOGLE_MAPS_API_KEY prefix: $keyPreview")
+
+        lifecycleScope.launch {
+            runCatching { PushRegistrar.registerIfPossible(this@MainActivity) }
+                .onFailure { Log.w("MainActivity", "Push registration failed: ${it.message}") }
+        }
 
         enableEdgeToEdge()
         setContent {
