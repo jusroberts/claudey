@@ -116,3 +116,13 @@ end
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 end
+
+# ── Always-applied runtime overrides (any env) ────────────────────────────────
+
+if path = System.get_env("FCM_SERVICE_ACCOUNT_PATH") do
+  config :wigglebot_server, :fcm_service_account_path, path
+end
+
+if db = System.get_env("DATABASE_PATH") do
+  config :wigglebot_server, WigglebotServer.Repo, database: db
+end

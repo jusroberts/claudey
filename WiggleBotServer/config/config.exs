@@ -8,7 +8,19 @@
 import Config
 
 config :wigglebot_server,
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  ecto_repos: [WigglebotServer.Repo]
+
+config :wigglebot_server, WigglebotServer.Repo,
+  database: "data/wigglebot_#{config_env()}.db"
+
+config :elixir, :time_zone_database, Tzdata.TimeZoneDatabase
+
+# Cron jobs (server-initiated pushes, reports). Quantum crontab syntax,
+# evaluated in the timezone below so wall-clock times survive DST.
+config :wigglebot_server, WigglebotServer.Scheduler,
+  timezone: "America/Toronto",
+  jobs: []
 
 # Configures the endpoint
 config :wigglebot_server, WigglebotServerWeb.Endpoint,
