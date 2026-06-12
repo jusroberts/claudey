@@ -135,7 +135,15 @@ if url = System.get_env("ACTUAL_API_URL") do
 end
 
 if token = System.get_env("GARMIN_ACCESS_TOKEN") do
+  config :wigglebot_server, garmin_access_token: token
+end
+
+if client_id = System.get_env("GARMIN_CLIENT_ID") do
   config :wigglebot_server,
-    garmin_access_token: token,
-    garmin_api_url: System.get_env("GARMIN_API_URL") || "https://apis.garmin.com"
+    garmin_client_id: client_id,
+    garmin_client_secret: System.get_env("GARMIN_CLIENT_SECRET") || ""
+end
+
+if url = System.get_env("GARMIN_API_URL") do
+  config :wigglebot_server, garmin_api_url: url
 end
