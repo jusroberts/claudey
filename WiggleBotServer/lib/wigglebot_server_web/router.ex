@@ -22,6 +22,8 @@ defmodule WigglebotServerWeb.Router do
     get "/fs/dirs", TmuxController, :dirs
     post "/devices", DeviceController, :register
     post "/push/test", DeviceController, :test_push
+    get "/garmin/auth", GarminController, :auth
+    get "/garmin/callback", GarminController, :callback
     post "/runs/sync", RunController, :sync
     get "/coach/week", RunController, :coach_week
     post "/coach/replan", RunController, :replan

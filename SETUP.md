@@ -51,17 +51,28 @@ with: `WigglebotServer.Finance.AnomalyReport.run_weekly()` in `iex`.
 ## Garmin (optional — richer run data)
 
 Health Connect sync from the phone works with zero setup. To also pull
-directly from Garmin (HR/elevation without the phone in the loop), set:
+directly from Garmin (HR/elevation without the phone in the loop), use your
+Garmin developer app's **client ID and client secret** — note that neither is
+an access token by itself; a one-time browser consent gets the real tokens,
+which the server then stores and auto-refreshes (Garmin access tokens only
+live ~24h):
 
-- `GARMIN_ACCESS_TOKEN` — OAuth2 bearer token from your Garmin developer
-  account's user-consent flow
-- `GARMIN_API_URL` — defaults to `https://apis.garmin.com`
+1. In your Garmin developer app settings, register the redirect URI
+   `https://<server>/api/garmin/callback`
+   (e.g. `https://wiggleton-server.tail22bb77.ts.net:11435/api/garmin/callback` —
+   it must match the server's configured public URL exactly).
+2. Set `GARMIN_CLIENT_ID` and `GARMIN_CLIENT_SECRET` (env or local.exs).
+3. From a browser on the tailnet, visit `https://<server>/api/garmin/auth`,
+   log into Garmin, approve. The callback stores the tokens in the
+   `oauth_tokens` table and immediately backfills the last week.
 
-The daily 05:30 job calls the Wellness Activity API
+`GARMIN_API_URL` defaults to `https://apis.garmin.com`; a static
+`GARMIN_ACCESS_TOKEN` env var is still honored as a manual override for
+testing. The daily 05:30 job calls the Wellness Activity API
 (`/wellness-api/rest/activities?uploadStartTimeInSeconds=...`). If your API
-tier exposes a different surface, adjust
-`lib/wigglebot_server/running/garmin_client.ex` (`fetch_activities/2`) —
-everything downstream only needs the mapped run fields.
+tier exposes different endpoints, the adjustment points are
+`fetch_activities/2` in `garmin_client.ex` and the `@authorize_url` /
+`@token_url` attributes in `garmin_auth.ex`.
 
 ## Coach & digest
 

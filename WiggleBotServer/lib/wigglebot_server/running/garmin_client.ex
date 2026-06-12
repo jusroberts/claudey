@@ -2,10 +2,13 @@ defmodule WigglebotServer.Running.GarminClient do
   @moduledoc """
   Pulls activities from the Garmin Health/Wellness API into the runs table.
 
-  Configure with GARMIN_API_URL (default https://apis.garmin.com) and
-  GARMIN_ACCESS_TOKEN (OAuth2 bearer token from your Garmin developer
-  account's user consent flow). When unconfigured, sync_recent/1 is a
-  logged no-op — Health Connect sync from the phone still populates runs.
+  Auth: set GARMIN_CLIENT_ID / GARMIN_CLIENT_SECRET and complete the
+  one-time consent flow at GET /api/garmin/auth (see GarminAuth). Tokens
+  are stored in the database and refreshed automatically. A static
+  GARMIN_ACCESS_TOKEN env var is still honored as an override for testing.
+
+  When unconfigured, sync_recent/1 is a logged no-op — Health Connect sync
+  from the phone still populates runs.
 
   NOTE: endpoint shape follows the Garmin Wellness REST Activity API
   (`/wellness-api/rest/activities?uploadStartTimeInSeconds=...`); if your
@@ -15,12 +18,13 @@ defmodule WigglebotServer.Running.GarminClient do
   require Logger
 
   alias WigglebotServer.Running
+  alias WigglebotServer.Running.GarminAuth
 
   @running_types ~w(RUNNING TRAIL_RUNNING TREADMILL_RUNNING TRACK_RUNNING
                     INDOOR_RUNNING STREET_RUNNING ULTRA_RUN VIRTUAL_RUN)
 
   def configured? do
-    Application.get_env(:wigglebot_server, :garmin_access_token) not in [nil, ""]
+    static_token() not in [nil, ""] or (GarminAuth.configured?() and GarminAuth.connected?())
   end
 
   @doc "Pulls activities uploaded in the last `hours` hours (default 26)."
@@ -48,23 +52,33 @@ defmodule WigglebotServer.Running.GarminClient do
 
   defp fetch_activities(from_t, to_t) do
     base = Application.get_env(:wigglebot_server, :garmin_api_url, "https://apis.garmin.com")
-    token = Application.get_env(:wigglebot_server, :garmin_access_token)
 
-    url =
-      "#{base}/wellness-api/rest/activities" <>
-        "?uploadStartTimeInSeconds=#{from_t}&uploadEndTimeInSeconds=#{to_t}"
+    with {:ok, token} <- bearer_token() do
+      url =
+        "#{base}/wellness-api/rest/activities" <>
+          "?uploadStartTimeInSeconds=#{from_t}&uploadEndTimeInSeconds=#{to_t}"
 
-    case Req.get(url, auth: {:bearer, token}, receive_timeout: 30_000) do
-      {:ok, %{status: 200, body: activities}} when is_list(activities) ->
-        {:ok, activities}
+      case Req.get(url, auth: {:bearer, token}, receive_timeout: 30_000) do
+        {:ok, %{status: 200, body: activities}} when is_list(activities) ->
+          {:ok, activities}
 
-      {:ok, %{status: status, body: body}} ->
-        {:error, "Garmin API HTTP #{status}: #{inspect(body)}"}
+        {:ok, %{status: status, body: body}} ->
+          {:error, "Garmin API HTTP #{status}: #{inspect(body)}"}
 
-      {:error, reason} ->
-        {:error, "Garmin API unreachable: #{inspect(reason)}"}
+        {:error, reason} ->
+          {:error, "Garmin API unreachable: #{inspect(reason)}"}
+      end
     end
   end
+
+  defp bearer_token do
+    case static_token() do
+      token when is_binary(token) and token != "" -> {:ok, token}
+      _ -> GarminAuth.access_token()
+    end
+  end
+
+  defp static_token, do: Application.get_env(:wigglebot_server, :garmin_access_token)
 
   defp store_activity(activity) do
     type = activity["activityType"] || ""
